@@ -12,6 +12,7 @@ import tempfile
 
 from bugster.constants import CONFIG_PATH, TESTS_DIR
 from bugster.types import Config
+from bugster.utils.yaml_spec import load_yaml_specs, YamlSpec
 
 console = Console()
 
@@ -37,15 +38,39 @@ async def load_test_files(test_path: Optional[Path] = None) -> List[dict]:
     if not test_path.exists():
         console.print(f"[red]Error: Path {test_path} does not exist[/red]")
         raise typer.Exit(1)
+
+    def process_yaml_file(file_path: Path) -> dict:
+        """Process a single YAML file and return its specs"""
+        try:
+            specs = load_yaml_specs(file_path)
+            # Convert specs to the expected format
+            content = []
+            for spec in specs:
+                test_data = spec.data
+                # Add metadata as hidden fields
+                test_data["_metadata"] = {
+                    "id": spec.metadata.id,
+                    "last_modified": spec.metadata.last_modified,
+                }
+                content.append(test_data)
+            return {"file": file_path, "content": content}
+        except Exception as e:
+            console.print(
+                f"[yellow]Warning: Failed to load test file {file_path}: {e}[/yellow]"
+            )
+            return None
+
     if test_path.is_file():
         if test_path.suffix == ".yaml":
-            with open(test_path) as f:
-                test_files.append({"file": test_path, "content": yaml.safe_load(f)})
+            result = process_yaml_file(test_path)
+            if result:
+                test_files.append(result)
     else:
         # Recursively find all .yaml files
         for file in test_path.rglob("*.yaml"):
-            with open(file) as f:
-                test_files.append({"file": file, "content": yaml.safe_load(f)})
+            result = process_yaml_file(file)
+            if result:
+                test_files.append(result)
 
     return test_files
 
