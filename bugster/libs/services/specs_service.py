@@ -27,7 +27,7 @@ class SpecsService:
         """Get all specs for a branch from remote"""
         response = requests.get(
             f"{self.base_url}/specs/{branch}",
-            headers={"Authorization": f"Bearer {self.api_key}"},
+            headers={"X-API-Key": f"{self.api_key}"},
         )
         response.raise_for_status()
         return response.json()
@@ -36,7 +36,7 @@ class SpecsService:
         """Upload multiple specs to remote in a single call"""
         response = requests.put(
             f"{self.base_url}/specs/{branch}",
-            headers={"Authorization": f"Bearer {self.api_key}"},
+            headers={"X-API-Key": f"{self.api_key}"},
             json=specs_data,
         )
         response.raise_for_status()
@@ -46,7 +46,7 @@ class SpecsService:
         """Delete multiple specs from remote in a single call"""
         response = requests.post(
             f"{self.base_url}/specs/{branch}/delete",
-            headers={"Authorization": f"Bearer {self.api_key}"},
+            headers={"X-API-Key": f"{self.api_key}"},
             json={"files": file_paths},
         )
         response.raise_for_status()
