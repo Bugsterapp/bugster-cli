@@ -44,7 +44,7 @@ class SpecMetadata:
 
     def to_comment(self) -> str:
         """Convert metadata to YAML comment format"""
-        return f"# @META:{json.dumps(self.__dict__)}"
+        return f"# @META:{json.dumps(self.__dict__)}\n# This comment contains machine-readable metadata that should not be modified"
 
 
 class YamlSpec:
