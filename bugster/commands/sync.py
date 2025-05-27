@@ -3,13 +3,12 @@ Sync command implementation.
 """
 
 from pathlib import Path
-from typing import Optional, List
+from typing import Dict, Optional, List
 import typer
 from rich.console import Console
 from rich.status import Status
 import subprocess
-from datetime import datetime
-import click
+from datetime import datetime, UTC
 
 from bugster.libs.services.specs_service import SpecsService
 from bugster.commands.middleware import require_api_key
@@ -41,7 +40,7 @@ def get_current_branch() -> str:
 def sync_specs(
     specs_service: SpecsService,
     branch: str,
-    local_specs: dict,
+    local_specs: Dict[str, List[YamlSpec]],
     remote_specs: dict,
     dry_run: bool = False,
     prefer: Optional[str] = None,
@@ -102,39 +101,63 @@ def sync_specs(
                 )
 
             elif local_spec and remote_spec:
+                # First check if the content is actually different
+                if local_spec.data == remote_spec.data:
+                    # Content is the same, no sync needed
+                    console.print(
+                        f"[dim]  No changes needed for spec: {file_path} ({spec_id})[/dim]"
+                    )
+                    continue
+
+                # Content is different, now check timestamps to resolve conflict
                 local_time = datetime.fromisoformat(local_spec.metadata.last_modified)
                 remote_time = datetime.fromisoformat(remote_spec.metadata.last_modified)
 
-                if local_time != remote_time:
-                    # Determine which version to keep
+                # Determine which version to keep
+                use_local = True
+                if prefer == "remote":
+                    use_local = False
+                elif prefer == "local":
                     use_local = True
-                    if prefer == "remote":
-                        use_local = False
-                    elif prefer == "local":
+                else:
+                    # If timestamps are equal, prefer local and update timestamp
+                    if local_time == remote_time:
                         use_local = True
+                        # Update local spec's timestamp to now
+                        local_spec.metadata.last_modified = datetime.now(
+                            UTC
+                        ).isoformat()
                     else:
                         use_local = local_time > remote_time
 
-                    if use_local:
-                        if not dry_run:
-                            file_specs_to_upload.append(
-                                {
-                                    "content": local_spec.data,
-                                    "metadata": {
-                                        "id": local_spec.metadata.id,
-                                        "last_modified": local_spec.metadata.last_modified,
-                                    },
-                                }
-                            )
-                        console.print(
-                            f"[green]↑ Will update remote spec (local is newer): {file_path} ({spec_id})[/green]"
+                if use_local:
+                    if not dry_run:
+                        file_specs_to_upload.append(
+                            {
+                                "content": local_spec.data,
+                                "metadata": {
+                                    "id": local_spec.metadata.id,
+                                    "last_modified": local_spec.metadata.last_modified,
+                                },
+                            }
                         )
-                    else:
-                        if not dry_run:
-                            file_specs_to_save.append(remote_spec)
-                        console.print(
-                            f"[blue]↓ Will update local spec (remote is newer): {file_path} ({spec_id})[/blue]"
-                        )
+                        # If we updated the timestamp, also save the local spec to persist the change
+                        if local_time == remote_time:
+                            file_specs_to_save.append(local_spec)
+                    reason = (
+                        "local is newer"
+                        if local_time > remote_time
+                        else "preferring local with updated timestamp"
+                    )
+                    console.print(
+                        f"[green]↑ Will update remote spec ({reason}): {file_path} ({spec_id})[/green]"
+                    )
+                else:
+                    if not dry_run:
+                        file_specs_to_save.append(remote_spec)
+                    console.print(
+                        f"[blue]↓ Will update local spec (remote is newer): {file_path} ({spec_id})[/blue]"
+                    )
 
         if file_specs_to_upload:
             specs_to_upload[file_path] = file_specs_to_upload
@@ -166,24 +189,13 @@ def sync_specs(
 
 @require_api_key
 def sync_command(
-    branch: Optional[str] = typer.Option(
-        None, help="Branch to sync with (defaults to current git branch or 'main')"
-    ),
-    pull: bool = typer.Option(False, help="Only pull specs from remote"),
-    push: bool = typer.Option(False, help="Only push specs to remote"),
-    clean_remote: bool = typer.Option(
-        False, help="Delete remote specs that don't exist locally"
-    ),
-    dry_run: bool = typer.Option(
-        False, help="Show what would happen without making changes"
-    ),
-    prefer: str = typer.Option(
-        None,
-        "--prefer",
-        help="Prefer 'local' or 'remote' when resolving conflicts",
-        click_type=click.Choice(["local", "remote"]),
-    ),
-):
+    branch: Optional[str] = None,
+    pull: bool = False,
+    push: bool = False,
+    clean_remote: bool = False,
+    dry_run: bool = False,
+    prefer: Optional[str] = None,
+) -> None:
     """Synchronize local and remote specs."""
     try:
         branch = branch or get_current_branch()
@@ -206,7 +218,15 @@ def sync_command(
         do_pull = pull or (not pull and not push)
         do_push = push or (not pull and not push)
 
-        if do_pull and do_push:
+        if clean_remote and not dry_run:
+            files_to_delete = set(remote_specs.keys()) - set(local_specs.keys())
+            if files_to_delete:
+                specs_service.delete_specs(branch, list(files_to_delete))
+                console.print(
+                    f"\n[yellow]Deleted {len(files_to_delete)} remote specs that don't exist locally[/yellow]"
+                )
+
+        elif do_pull and do_push:
             # When doing both pull and push, do a full sync
             console.print("\n[cyan]Synchronizing specs...[/cyan]")
             sync_specs(
@@ -241,14 +261,6 @@ def sync_command(
                     dry_run=dry_run,
                     prefer=prefer,
                     tests_dir=TESTS_DIR,
-                )
-
-        if clean_remote and not dry_run:
-            files_to_delete = set(remote_specs.keys()) - set(local_specs.keys())
-            if files_to_delete:
-                specs_service.delete_specs(branch, list(files_to_delete))
-                console.print(
-                    f"\n[yellow]Deleted {len(files_to_delete)} remote specs that don't exist locally[/yellow]"
                 )
 
         # Final step: Ensure all local specs are saved with metadata

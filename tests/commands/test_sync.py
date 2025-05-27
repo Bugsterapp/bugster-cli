@@ -408,6 +408,100 @@ def test_sync_specs_multiple_specs_partial_update(specs_service, tmp_path):
     assert specs_by_id["spec-4"].data["steps"] == ["step4"]
 
 
+def test_sync_specs_same_content_no_sync_needed(specs_service, tmp_path):
+    """Test that when specs have same content, no sync is performed regardless of timestamps"""
+    # Create specs with same content but different timestamps
+    local_spec = YamlSpec(
+        data={"name": "Same Content", "steps": ["step1", "step2"]},
+        metadata=SpecMetadata(id="same-id", last_modified="2024-03-20T10:00:00+00:00"),
+    )
+
+    remote_spec = {
+        "content": {"name": "Same Content", "steps": ["step1", "step2"]},
+        "metadata": {
+            "id": "same-id",
+            "last_modified": "2024-03-20T15:00:00+00:00",  # Different timestamp
+        },
+    }
+
+    local_specs = {"test/same_content.yaml": [local_spec]}
+    remote_specs = {"test/same_content.yaml": [remote_spec]}
+
+    test_dir = tmp_path / ".bugster/tests"
+    test_dir.mkdir(parents=True)
+
+    with responses.RequestsMock() as rsps:
+        # No requests should be made since content is the same
+        sync_specs(specs_service, "main", local_specs, remote_specs, tests_dir=test_dir)
+
+        # Verify no API calls were made
+        assert len(rsps.calls) == 0
+
+
+def test_sync_specs_same_timestamp_different_content_prefers_local(
+    specs_service, tmp_path
+):
+    """Test that when timestamps are equal but content differs, local is preferred with updated timestamp"""
+    # Create specs with different content but same timestamp
+    local_spec = YamlSpec(
+        data={"name": "Local Content", "steps": ["step1", "step2"]},
+        metadata=SpecMetadata(id="same-id", last_modified="2024-03-20T10:00:00+00:00"),
+    )
+
+    remote_spec = {
+        "content": {"name": "Remote Content", "steps": ["step1", "step2", "step3"]},
+        "metadata": {
+            "id": "same-id",
+            "last_modified": "2024-03-20T10:00:00+00:00",  # Same timestamp
+        },
+    }
+
+    local_specs = {"test/equal_timestamp.yaml": [local_spec]}
+    remote_specs = {"test/equal_timestamp.yaml": [remote_spec]}
+
+    test_dir = tmp_path / ".bugster/tests"
+    test_dir.mkdir(parents=True)
+
+    # Create initial local file
+    spec_file = test_dir / "test/equal_timestamp.yaml"
+    spec_file.parent.mkdir(parents=True)
+    save_yaml_specs(spec_file, [local_spec])
+
+    with responses.RequestsMock() as rsps:
+        upload_mock = rsps.add(
+            responses.PUT,
+            "https://test.bugster.dev/specs/main",
+            json={"status": "success"},
+            status=200,
+        )
+
+        sync_specs(specs_service, "main", local_specs, remote_specs, tests_dir=test_dir)
+
+        # Verify upload was called with local content and updated timestamp
+        assert len(rsps.calls) == 1
+        uploaded_data = json.loads(rsps.calls[0].request.body)
+
+        uploaded_spec = uploaded_data["test/equal_timestamp.yaml"][0]
+        assert uploaded_spec["content"]["name"] == "Local Content"
+        assert uploaded_spec["content"]["steps"] == ["step1", "step2"]
+
+        # Timestamp should be updated to current time (not the original equal timestamp)
+        uploaded_timestamp = uploaded_spec["metadata"]["last_modified"]
+        assert uploaded_timestamp != "2024-03-20T10:00:00+00:00"
+
+        # Verify the timestamp is a valid ISO format (should be current time)
+        datetime.fromisoformat(uploaded_timestamp)
+
+    # Verify local file was also updated with the new timestamp
+    final_specs = load_yaml_specs(spec_file)
+    assert len(final_specs) == 1
+
+    updated_spec = final_specs[0]
+    assert updated_spec.data["name"] == "Local Content"
+    assert updated_spec.metadata.last_modified != "2024-03-20T10:00:00+00:00"
+    assert updated_spec.metadata.last_modified == uploaded_timestamp
+
+
 @responses.activate
 def test_sync_command_full_integration(tmp_path, monkeypatch):
     """Test full sync command integration with all scenarios"""
