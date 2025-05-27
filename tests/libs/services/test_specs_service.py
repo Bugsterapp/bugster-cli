@@ -13,7 +13,11 @@ from bugster.utils.yaml_spec import YamlSpec, SpecMetadata
 
 @pytest.fixture
 def specs_service():
-    return SpecsService(base_url="https://test.bugster.dev", api_key="test-key")
+    return SpecsService(
+        base_url="https://test.bugster.dev",
+        api_key="test-key",
+        project_id="test-project",
+    )
 
 
 @pytest.fixture
@@ -31,7 +35,7 @@ def test_get_remote_specs(specs_service):
     """Test getting specs from remote"""
     responses.add(
         responses.GET,
-        "https://test.bugster.dev/specs/main",
+        "https://test.bugster.dev/specs/test-project/main",
         json={
             "test/file.yaml": [
                 {
@@ -69,7 +73,7 @@ def test_upload_specs(specs_service, mock_spec):
 
     responses.add(
         responses.PUT,
-        "https://test.bugster.dev/specs/main",
+        "https://test.bugster.dev/specs/test-project/main",
         json={"status": "success"},
         status=200,
     )
@@ -82,7 +86,9 @@ def test_upload_specs(specs_service, mock_spec):
 def test_delete_specs(specs_service):
     """Test deleting specs from remote"""
     responses.add(
-        responses.POST, "https://test.bugster.dev/specs/main/delete", status=200
+        responses.POST,
+        "https://test.bugster.dev/specs/test-project/main/delete",
+        status=200,
     )
 
     # Should not raise any exception

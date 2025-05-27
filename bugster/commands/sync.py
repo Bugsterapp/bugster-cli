@@ -218,13 +218,56 @@ def sync_command(
         do_pull = pull or (not pull and not push)
         do_push = push or (not pull and not push)
 
-        if clean_remote and not dry_run:
+        if clean_remote:
+            # First identify files that don't exist locally at all (will be deleted entirely)
             files_to_delete = set(remote_specs.keys()) - set(local_specs.keys())
+
+            # Find individual specs that exist in remote but not in local (only in files that exist locally)
+            specs_to_delete = {}
+            for file_path, remote_file_specs in remote_specs.items():
+                # Skip files that will be deleted entirely
+                if file_path in files_to_delete:
+                    continue
+
+                local_file_specs = local_specs.get(file_path, [])
+                local_spec_ids = {spec.metadata.id for spec in local_file_specs}
+
+                # Find remote specs that don't exist locally
+                remote_specs_to_delete = [
+                    spec
+                    for spec in remote_file_specs
+                    if spec["metadata"]["id"] not in local_spec_ids
+                ]
+
+                if remote_specs_to_delete:
+                    specs_to_delete[file_path] = [
+                        spec["metadata"]["id"] for spec in remote_specs_to_delete
+                    ]
+                    for spec in remote_specs_to_delete:
+                        console.print(
+                            f"[yellow]Will delete remote spec: {file_path} ({spec['metadata']['id']})[/yellow]"
+                        )
+
+            # Show files that will be deleted entirely
             if files_to_delete:
-                specs_service.delete_specs(branch, list(files_to_delete))
-                console.print(
-                    f"\n[yellow]Deleted {len(files_to_delete)} remote specs that don't exist locally[/yellow]"
+                for file_path in files_to_delete:
+                    console.print(
+                        f"[yellow]Will delete entire remote file: {file_path}[/yellow]"
+                    )
+
+            if not dry_run:
+                if specs_to_delete:
+                    specs_service.delete_specific_specs(branch, specs_to_delete)
+                if files_to_delete:
+                    specs_service.delete_specs(branch, list(files_to_delete))
+
+                total_deleted_specs = sum(
+                    len(spec_ids) for spec_ids in specs_to_delete.values()
                 )
+                if total_deleted_specs > 0 or files_to_delete:
+                    console.print(
+                        f"\n[yellow]Deleted {total_deleted_specs} individual specs and {len(files_to_delete)} complete files from remote[/yellow]"
+                    )
 
         elif do_pull and do_push:
             # When doing both pull and push, do a full sync

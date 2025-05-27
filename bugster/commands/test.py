@@ -170,9 +170,9 @@ async def test_command(
 
     try:
         # Load configuration and test files
-        config = await load_config()
+        config = load_config()
         path = Path(test_path) if test_path else None
-        test_files = await load_test_files(path)
+        test_files = load_test_files(path)
 
         if not test_files:
             console.print("[yellow]No test files found[/yellow]")

@@ -17,7 +17,7 @@ from bugster.utils.yaml_spec import load_yaml_specs, YamlSpec
 console = Console()
 
 
-async def load_config() -> Config:
+def load_config() -> Config:
     """Load configuration from config.yaml"""
     if not CONFIG_PATH.exists():
         console.print(
@@ -29,7 +29,7 @@ async def load_config() -> Config:
         return Config(**yaml.safe_load(f))
 
 
-async def load_test_files(test_path: Optional[Path] = None) -> List[dict]:
+def load_test_files(test_path: Optional[Path] = None) -> List[dict]:
     """Load test files from the given path or all tests if no path specified."""
     test_files = []
 

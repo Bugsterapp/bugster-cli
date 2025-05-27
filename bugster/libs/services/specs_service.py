@@ -9,24 +9,37 @@ from datetime import datetime, UTC, timedelta
 
 from bugster.libs.settings import libs_settings
 from bugster.utils.user_config import get_api_key
+from bugster.utils.file import load_config
 
 
 class SpecsService:
     """Service for managing specs with remote operations."""
 
-    def __init__(self, base_url: str = None, api_key: str = None):
+    def __init__(
+        self, base_url: str = None, api_key: str = None, project_id: str = None
+    ):
         self.base_url = base_url or libs_settings.bugster_api_url
         self.api_key = api_key or get_api_key()
+        self.project_id = project_id
 
         if not self.api_key:
             raise ValueError(
                 "API key is required. Please run 'bugster login' to set up your API key."
             )
 
+    def _get_project_id(self) -> str:
+        """Get project_id from config or use provided one"""
+        if self.project_id:
+            return self.project_id
+
+        config = load_config()
+        return config.project_id
+
     def get_remote_specs(self, branch: str) -> Dict[str, List[Dict]]:
         """Get all specs for a branch from remote"""
+        project_id = self._get_project_id()
         response = requests.get(
-            f"{self.base_url}/specs/{branch}",
+            f"{self.base_url}/specs/{project_id}/{branch}",
             headers={"X-API-Key": f"{self.api_key}"},
         )
         response.raise_for_status()
@@ -34,8 +47,9 @@ class SpecsService:
 
     def upload_specs(self, branch: str, specs_data: Dict[str, List[Dict]]) -> Dict:
         """Upload multiple specs to remote in a single call"""
+        project_id = self._get_project_id()
         response = requests.put(
-            f"{self.base_url}/specs/{branch}",
+            f"{self.base_url}/specs/{project_id}/{branch}",
             headers={"X-API-Key": f"{self.api_key}"},
             json=specs_data,
         )
@@ -44,10 +58,23 @@ class SpecsService:
 
     def delete_specs(self, branch: str, file_paths: List[str]) -> None:
         """Delete multiple specs from remote in a single call"""
+        project_id = self._get_project_id()
         response = requests.post(
-            f"{self.base_url}/specs/{branch}/delete",
+            f"{self.base_url}/specs/{project_id}/{branch}/delete",
             headers={"X-API-Key": f"{self.api_key}"},
             json={"files": file_paths},
+        )
+        response.raise_for_status()
+
+    def delete_specific_specs(
+        self, branch: str, specs_to_delete: Dict[str, List[str]]
+    ) -> None:
+        """Delete specific specs by ID from remote files"""
+        project_id = self._get_project_id()
+        response = requests.post(
+            f"{self.base_url}/specs/{project_id}/{branch}/delete-specs",
+            headers={"X-API-Key": f"{self.api_key}"},
+            json={"specs": specs_to_delete},
         )
         response.raise_for_status()
 
@@ -55,9 +82,12 @@ class SpecsService:
 class HardcodedSpecsService:
     """Hardcoded version of SpecsService for testing without real API."""
 
-    def __init__(self, base_url: str = None, api_key: str = None):
+    def __init__(
+        self, base_url: str = None, api_key: str = None, project_id: str = None
+    ):
         self.base_url = base_url or "https://mock.bugster.dev"
         self.api_key = api_key or "mock-api-key"
+        self.project_id = project_id
 
         # Simulated remote storage - persists during the session
         self._remote_storage: Dict[str, Dict[str, List[Dict]]] = {
@@ -171,9 +201,20 @@ class HardcodedSpecsService:
                 f"   {branch}: {len(files)} files, {sum(len(specs) for specs in files.values())} specs"
             )
 
+    def _get_project_id(self) -> str:
+        """Get project_id from config or use provided one"""
+        if self.project_id:
+            return self.project_id
+
+        config = load_config()
+        return config.project_id
+
     def get_remote_specs(self, branch: str) -> Dict[str, List[Dict]]:
         """Get all specs for a branch from mock storage"""
-        logger.info(f"📥 Getting remote specs for branch: {branch}")
+        project_id = self._get_project_id()
+        logger.info(
+            f"📥 Getting remote specs for project {project_id}, branch: {branch}"
+        )
 
         if branch not in self._remote_storage:
             logger.warning(f"Branch '{branch}' not found, returning empty specs")
@@ -188,7 +229,8 @@ class HardcodedSpecsService:
 
     def upload_specs(self, branch: str, specs_data: Dict[str, List[Dict]]) -> Dict:
         """Upload multiple specs to mock storage"""
-        logger.info(f"📤 Uploading specs to branch: {branch}")
+        project_id = self._get_project_id()
+        logger.info(f"📤 Uploading specs to project {project_id}, branch: {branch}")
         logger.info(f"📁 Files to upload: {list(specs_data.keys())}")
 
         # Initialize branch if it doesn't exist
@@ -221,7 +263,8 @@ class HardcodedSpecsService:
 
     def delete_specs(self, branch: str, file_paths: List[str]) -> None:
         """Delete multiple specs from mock storage"""
-        logger.info(f"🗑️  Deleting specs from branch: {branch}")
+        project_id = self._get_project_id()
+        logger.info(f"🗑️  Deleting specs from project {project_id}, branch: {branch}")
         logger.info(f"📁 Files to delete: {file_paths}")
 
         if branch not in self._remote_storage:
@@ -238,6 +281,47 @@ class HardcodedSpecsService:
                 logger.warning(f"   ⚠️  File not found: {file_path}")
 
         logger.info(f"🗑️  Deleted {deleted_count} files")
+
+    def delete_specific_specs(
+        self, branch: str, specs_to_delete: Dict[str, List[str]]
+    ) -> None:
+        """Delete specific specs by ID from mock storage"""
+        project_id = self._get_project_id()
+        logger.info(
+            f"🗑️  Deleting specific specs from project {project_id}, branch: {branch}"
+        )
+        logger.info(f"📁 Files with specs to delete: {list(specs_to_delete.keys())}")
+
+        if branch not in self._remote_storage:
+            logger.warning(f"Branch '{branch}' not found")
+            return
+
+        total_deleted = 0
+        for file_path, spec_ids_to_delete in specs_to_delete.items():
+            if file_path not in self._remote_storage[branch]:
+                logger.warning(f"   ⚠️  File not found: {file_path}")
+                continue
+
+            # Remove specs with matching IDs
+            original_specs = self._remote_storage[branch][file_path]
+            filtered_specs = [
+                spec
+                for spec in original_specs
+                if spec["metadata"]["id"] not in spec_ids_to_delete
+            ]
+
+            deleted_count = len(original_specs) - len(filtered_specs)
+            self._remote_storage[branch][file_path] = filtered_specs
+            total_deleted += deleted_count
+
+            logger.info(f"   ✅ {file_path}: deleted {deleted_count} specs")
+
+            # If file is now empty, remove it entirely
+            if not filtered_specs:
+                del self._remote_storage[branch][file_path]
+                logger.info(f"   ✅ Removed empty file: {file_path}")
+
+        logger.info(f"🗑️  Deleted {total_deleted} individual specs")
 
     def get_storage_info(self) -> Dict:
         """Get information about current mock storage state (for debugging)"""
