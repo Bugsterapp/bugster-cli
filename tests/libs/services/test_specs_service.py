@@ -35,7 +35,7 @@ def test_get_remote_specs(specs_service):
     """Test getting specs from remote"""
     responses.add(
         responses.GET,
-        "https://test.bugster.dev/specs/test-project/main",
+        "https://test.bugster.dev/api/v1/specs/test-project?branch=main",
         json={
             "test/file.yaml": [
                 {
@@ -73,7 +73,7 @@ def test_upload_specs(specs_service, mock_spec):
 
     responses.add(
         responses.PUT,
-        "https://test.bugster.dev/specs/test-project/main",
+        "https://test.bugster.dev/api/v1/specs/test-project?branch=main",
         json={"status": "success"},
         status=200,
     )
@@ -87,12 +87,30 @@ def test_delete_specs(specs_service):
     """Test deleting specs from remote"""
     responses.add(
         responses.POST,
-        "https://test.bugster.dev/specs/test-project/main/delete",
+        "https://test.bugster.dev/api/v1/specs/test-project/delete?branch=main",
         status=200,
     )
 
     # Should not raise any exception
     specs_service.delete_specs("main", ["test/file1.yaml", "test/file2.yaml"])
+
+
+@responses.activate
+def test_delete_specific_specs(specs_service):
+    """Test deleting specific specs by ID from remote"""
+    responses.add(
+        responses.POST,
+        "https://test.bugster.dev/api/v1/specs/test-project/delete-specs?branch=main",
+        status=200,
+    )
+
+    specs_to_delete = {
+        "test/file1.yaml": ["spec-id-1", "spec-id-2"],
+        "test/file2.yaml": ["spec-id-3"],
+    }
+
+    # Should not raise any exception
+    specs_service.delete_specific_specs("main", specs_to_delete)
 
 
 def test_specs_service_requires_api_key(monkeypatch):

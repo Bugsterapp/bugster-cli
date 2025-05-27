@@ -214,6 +214,9 @@ def sync_command(
 
             status.update("[green]Specs loaded successfully![/green]")
 
+        # Keep track of specs that were processed during sync to maintain metadata consistency
+        processed_specs = {}  # file_path -> {spec_id -> YamlSpec}
+
         # If neither pull nor push is specified, do both
         do_pull = pull or (not pull and not push)
         do_push = push or (not pull and not push)
@@ -281,6 +284,9 @@ def sync_command(
                 prefer=prefer,
                 tests_dir=TESTS_DIR,
             )
+            # Track processed specs
+            for file_path, specs in local_specs.items():
+                processed_specs[file_path] = {spec.metadata.id: spec for spec in specs}
         else:
             if do_pull:
                 console.print("\n[blue]Pulling specs from remote...[/blue]")
@@ -305,14 +311,40 @@ def sync_command(
                     prefer=prefer,
                     tests_dir=TESTS_DIR,
                 )
+                # Track processed specs for push
+                for file_path, specs in local_specs.items():
+                    processed_specs[file_path] = {
+                        spec.metadata.id: spec for spec in specs
+                    }
 
         # Final step: Ensure all local specs are saved with metadata
         if not dry_run and TESTS_DIR.exists():
             console.print("\n[cyan]Updating local files with metadata...[/cyan]")
             for file in TESTS_DIR.rglob("*.yaml"):
                 try:
+                    rel_path = str(file.relative_to(TESTS_DIR))
+
                     # Load specs (this will auto-generate metadata for specs that don't have it)
                     specs = load_yaml_specs(file)
+
+                    # If we have processed specs for this file, use their metadata to maintain consistency
+                    if rel_path in processed_specs:
+                        processed_specs_by_content = {}
+                        for spec_id, processed_spec in processed_specs[
+                            rel_path
+                        ].items():
+                            # Create a key based on spec content to match with loaded specs
+                            content_key = str(processed_spec.data)
+                            processed_specs_by_content[content_key] = processed_spec
+
+                        # Update loaded specs with processed metadata where content matches
+                        for spec in specs:
+                            content_key = str(spec.data)
+                            if content_key in processed_specs_by_content:
+                                # Use the metadata from the processed spec to maintain consistency
+                                spec.metadata = processed_specs_by_content[
+                                    content_key
+                                ].metadata
 
                     # Check if any spec needs metadata update by comparing file content
                     with open(file, "r") as f:

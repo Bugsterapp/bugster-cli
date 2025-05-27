@@ -39,7 +39,8 @@ class SpecsService:
         """Get all specs for a branch from remote"""
         project_id = self._get_project_id()
         response = requests.get(
-            f"{self.base_url}/specs/{project_id}/{branch}",
+            f"{self.base_url}/api/v1/specs/{project_id}",
+            params={"branch": branch},
             headers={"X-API-Key": f"{self.api_key}"},
         )
         response.raise_for_status()
@@ -49,7 +50,8 @@ class SpecsService:
         """Upload multiple specs to remote in a single call"""
         project_id = self._get_project_id()
         response = requests.put(
-            f"{self.base_url}/specs/{project_id}/{branch}",
+            f"{self.base_url}/api/v1/specs/{project_id}",
+            params={"branch": branch},
             headers={"X-API-Key": f"{self.api_key}"},
             json=specs_data,
         )
@@ -60,7 +62,8 @@ class SpecsService:
         """Delete multiple specs from remote in a single call"""
         project_id = self._get_project_id()
         response = requests.post(
-            f"{self.base_url}/specs/{project_id}/{branch}/delete",
+            f"{self.base_url}/api/v1/specs/{project_id}/delete",
+            params={"branch": branch},
             headers={"X-API-Key": f"{self.api_key}"},
             json={"files": file_paths},
         )
@@ -72,7 +75,8 @@ class SpecsService:
         """Delete specific specs by ID from remote files"""
         project_id = self._get_project_id()
         response = requests.post(
-            f"{self.base_url}/specs/{project_id}/{branch}/delete-specs",
+            f"{self.base_url}/api/v1/specs/{project_id}/delete-specs",
+            params={"branch": branch},
             headers={"X-API-Key": f"{self.api_key}"},
             json={"specs": specs_to_delete},
         )

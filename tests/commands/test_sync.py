@@ -76,7 +76,7 @@ def test_sync_specs_new_local_uploads_to_remote(specs_service, tmp_path):
     with responses.RequestsMock() as rsps:
         upload_mock = rsps.add(
             responses.PUT,
-            "https://test.bugster.dev/specs/test-project/main",
+            "https://test.bugster.dev/api/v1/specs/test-project?branch=main",
             json={"status": "success"},
             status=200,
         )
@@ -160,7 +160,7 @@ def test_sync_specs_conflict_local_newer_updates_remote(specs_service, tmp_path)
     with responses.RequestsMock() as rsps:
         upload_mock = rsps.add(
             responses.PUT,
-            "https://test.bugster.dev/specs/test-project/main",
+            "https://test.bugster.dev/api/v1/specs/test-project?branch=main",
             json={"status": "success"},
             status=200,
         )
@@ -253,7 +253,7 @@ def test_sync_specs_prefer_local_overrides_timestamp(specs_service, tmp_path):
     with responses.RequestsMock() as rsps:
         upload_mock = rsps.add(
             responses.PUT,
-            "https://test.bugster.dev/specs/test-project/main",
+            "https://test.bugster.dev/api/v1/specs/test-project?branch=main",
             json={"status": "success"},
             status=200,
         )
@@ -371,7 +371,7 @@ def test_sync_specs_multiple_specs_partial_update(specs_service, tmp_path):
     with responses.RequestsMock() as rsps:
         upload_mock = rsps.add(
             responses.PUT,
-            "https://test.bugster.dev/specs/test-project/main",
+            "https://test.bugster.dev/api/v1/specs/test-project?branch=main",
             json={"status": "success"},
             status=200,
         )
@@ -470,7 +470,7 @@ def test_sync_specs_same_timestamp_different_content_prefers_local(
     with responses.RequestsMock() as rsps:
         upload_mock = rsps.add(
             responses.PUT,
-            "https://test.bugster.dev/specs/test-project/main",
+            "https://test.bugster.dev/api/v1/specs/test-project?branch=main",
             json={"status": "success"},
             status=200,
         )
@@ -562,7 +562,7 @@ def test_sync_command_full_integration(tmp_path, monkeypatch):
     # This will be called twice (once for pull, once for push)
     responses.add(
         responses.GET,
-        "https://api.bugster.dev/specs/test-project/main",
+        "https://api.bugster.dev/api/v1/specs/test-project?branch=main",
         json={
             "remote_only.yaml": [
                 {
@@ -589,7 +589,7 @@ def test_sync_command_full_integration(tmp_path, monkeypatch):
     # Mock upload response
     responses.add(
         responses.PUT,
-        "https://api.bugster.dev/specs/test-project/main",
+        "https://api.bugster.dev/api/v1/specs/test-project?branch=main",
         json={"status": "success"},
         status=200,
     )
@@ -662,7 +662,7 @@ def test_sync_command_pull_only_downloads_remote_specs(tmp_path, monkeypatch):
     # Mock remote response with remote-only specs
     responses.add(
         responses.GET,
-        "https://api.bugster.dev/specs/test-project/main",
+        "https://api.bugster.dev/api/v1/specs/test-project?branch=main",
         json={
             "remote_only.yaml": [
                 {
@@ -728,7 +728,7 @@ def test_sync_command_clean_remote(tmp_path, monkeypatch):
     # Mock remote response with multiple files (some should be deleted)
     responses.add(
         responses.GET,
-        "https://api.bugster.dev/specs/test-project/main",
+        "https://api.bugster.dev/api/v1/specs/test-project?branch=main",
         json={
             "local.yaml": [
                 {
@@ -764,7 +764,7 @@ def test_sync_command_clean_remote(tmp_path, monkeypatch):
     # Mock upload response
     responses.add(
         responses.PUT,
-        "https://api.bugster.dev/specs/test-project/main",
+        "https://api.bugster.dev/api/v1/specs/test-project?branch=main",
         json={"status": "success"},
         status=200,
     )
@@ -772,7 +772,7 @@ def test_sync_command_clean_remote(tmp_path, monkeypatch):
     # Mock delete response (for complete files)
     delete_mock = responses.add(
         responses.POST,
-        "https://api.bugster.dev/specs/test-project/main/delete",
+        "https://api.bugster.dev/api/v1/specs/test-project/delete?branch=main",
         json={"status": "success"},
         status=200,
     )
@@ -780,7 +780,7 @@ def test_sync_command_clean_remote(tmp_path, monkeypatch):
     # Mock delete_specific_specs response (for individual specs)
     delete_specific_mock = responses.add(
         responses.POST,
-        "https://api.bugster.dev/specs/test-project/main/delete-specs",
+        "https://api.bugster.dev/api/v1/specs/test-project/delete-specs?branch=main",
         json={"status": "success"},
         status=200,
     )
@@ -850,7 +850,7 @@ def test_sync_command_clean_remote_individual_specs(tmp_path, monkeypatch):
     # Mock remote response with the same file but additional specs
     responses.add(
         responses.GET,
-        "https://api.bugster.dev/specs/test-project/main",
+        "https://api.bugster.dev/api/v1/specs/test-project?branch=main",
         json={
             "shared.yaml": [
                 {
@@ -882,7 +882,7 @@ def test_sync_command_clean_remote_individual_specs(tmp_path, monkeypatch):
     # Mock upload response
     responses.add(
         responses.PUT,
-        "https://api.bugster.dev/specs/test-project/main",
+        "https://api.bugster.dev/api/v1/specs/test-project?branch=main",
         json={"status": "success"},
         status=200,
     )
@@ -890,7 +890,7 @@ def test_sync_command_clean_remote_individual_specs(tmp_path, monkeypatch):
     # Mock delete response (for complete files)
     delete_mock = responses.add(
         responses.POST,
-        "https://api.bugster.dev/specs/test-project/main/delete",
+        "https://api.bugster.dev/api/v1/specs/test-project/delete?branch=main",
         json={"status": "success"},
         status=200,
     )
@@ -898,7 +898,7 @@ def test_sync_command_clean_remote_individual_specs(tmp_path, monkeypatch):
     # Mock delete_specific_specs response (for individual specs)
     delete_specific_mock = responses.add(
         responses.POST,
-        "https://api.bugster.dev/specs/test-project/main/delete-specs",
+        "https://api.bugster.dev/api/v1/specs/test-project/delete-specs?branch=main",
         json={"status": "success"},
         status=200,
     )
@@ -990,7 +990,7 @@ def test_sync_command_dry_run_shows_changes_without_executing(tmp_path, monkeypa
     # Mock remote response
     responses.add(
         responses.GET,
-        "https://api.bugster.dev/specs/test-project/main",
+        "https://api.bugster.dev/api/v1/specs/test-project?branch=main",
         json={
             "remote.yaml": [
                 {
