@@ -1,5 +1,5 @@
 """
-Tests for SpecsService.
+Tests for SyncService.
 """
 
 import pytest
@@ -7,13 +7,13 @@ import responses
 from datetime import datetime, UTC
 from unittest.mock import MagicMock
 
-from bugster.libs.services.specs_service import SpecsService
-from bugster.utils.yaml_spec import YamlSpec, SpecMetadata
+from bugster.libs.services.specs_service import SyncService
+from bugster.utils.yaml_spec import YamlTestcase, TestCaseMetadata
 
 
 @pytest.fixture
 def specs_service():
-    return SpecsService(
+    return SyncService(
         base_url="https://test.bugster.dev",
         api_key="test-key",
         project_id="test-project",
@@ -22,9 +22,9 @@ def specs_service():
 
 @pytest.fixture
 def mock_spec():
-    return YamlSpec(
+    return YamlTestcase(
         data={"name": "Test Spec", "steps": ["step1", "step2"]},
-        metadata=SpecMetadata(
+        metadata=TestCaseMetadata(
             id="test-id", last_modified=datetime.now(UTC).isoformat()
         ),
     )
@@ -35,7 +35,7 @@ def test_get_remote_specs(specs_service):
     """Test getting specs from remote"""
     responses.add(
         responses.GET,
-        "https://test.bugster.dev/api/v1/specs/test-project?branch=main",
+        "https://test.bugster.dev/api/v1/sync/test-project?branch=main",
         json={
             "test/file.yaml": [
                 {
@@ -50,7 +50,7 @@ def test_get_remote_specs(specs_service):
         status=200,
     )
 
-    result = specs_service.get_remote_specs("main")
+    result = specs_service.get_remote_test_cases("main")
     assert "test/file.yaml" in result
     assert len(result["test/file.yaml"]) == 1
     assert result["test/file.yaml"][0]["metadata"]["id"] == "test-id"
@@ -73,12 +73,12 @@ def test_upload_specs(specs_service, mock_spec):
 
     responses.add(
         responses.PUT,
-        "https://test.bugster.dev/api/v1/specs/test-project?branch=main",
+        "https://test.bugster.dev/api/v1/sync/test-project?branch=main",
         json={"status": "success"},
         status=200,
     )
 
-    result = specs_service.upload_specs("main", specs_data)
+    result = specs_service.upload_test_cases("main", specs_data)
     assert result["status"] == "success"
 
 
@@ -87,7 +87,7 @@ def test_delete_specs(specs_service):
     """Test deleting specs from remote"""
     responses.add(
         responses.POST,
-        "https://test.bugster.dev/api/v1/specs/test-project/delete?branch=main",
+        "https://test.bugster.dev/api/v1/sync/test-project/delete?branch=main",
         status=200,
     )
 
@@ -100,21 +100,21 @@ def test_delete_specific_specs(specs_service):
     """Test deleting specific specs by ID from remote"""
     responses.add(
         responses.POST,
-        "https://test.bugster.dev/api/v1/specs/test-project/delete-specs?branch=main",
+        "https://test.bugster.dev/api/v1/sync/test-project/delete-test-cases?branch=main",
         status=200,
     )
 
-    specs_to_delete = {
+    test_cases_to_delete = {
         "test/file1.yaml": ["spec-id-1", "spec-id-2"],
         "test/file2.yaml": ["spec-id-3"],
     }
 
     # Should not raise any exception
-    specs_service.delete_specific_specs("main", specs_to_delete)
+    specs_service.delete_specific_test_cases("main", test_cases_to_delete)
 
 
 def test_specs_service_requires_api_key(monkeypatch):
-    """Test that SpecsService requires an API key"""
+    """Test that SyncService requires an API key"""
     # Mock environment variable
     monkeypatch.delenv("BUGSTER_CLI_API_KEY", raising=False)
 
@@ -132,4 +132,4 @@ def test_specs_service_requires_api_key(monkeypatch):
         ValueError,
         match="API key is required. Please run 'bugster login' to set up your API key.",
     ):
-        SpecsService()
+        SyncService()

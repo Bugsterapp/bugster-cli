@@ -12,7 +12,7 @@ import tempfile
 
 from bugster.constants import CONFIG_PATH, TESTS_DIR
 from bugster.types import Config
-from bugster.utils.yaml_spec import load_yaml_specs, YamlSpec
+from bugster.utils.yaml_spec import load_spec, YamlTestcase
 
 console = Console()
 
@@ -42,15 +42,15 @@ def load_test_files(test_path: Optional[Path] = None) -> List[dict]:
     def process_yaml_file(file_path: Path) -> dict:
         """Process a single YAML file and return its specs"""
         try:
-            specs = load_yaml_specs(file_path)
+            test_cases = load_spec(file_path)
             # Convert specs to the expected format
             content = []
-            for spec in specs:
-                test_data = spec.data
+            for test_case in test_cases:
+                test_data = test_case.data
                 # Add metadata as hidden fields
                 test_data["_metadata"] = {
-                    "id": spec.metadata.id,
-                    "last_modified": spec.metadata.last_modified,
+                    "id": test_case.metadata.id,
+                    "last_modified": test_case.metadata.last_modified,
                 }
                 content.append(test_data)
             return {"file": file_path, "content": content}

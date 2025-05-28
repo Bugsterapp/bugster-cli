@@ -13,17 +13,17 @@ from loguru import logger
 
 
 @dataclass
-class SpecMetadata:
+class TestCaseMetadata:
     id: str
     last_modified: str
 
     @classmethod
-    def create_new(cls) -> "SpecMetadata":
+    def create_new(cls) -> "TestCaseMetadata":
         """Create new metadata with default values"""
         return cls(id=str(uuid.uuid4()), last_modified=datetime.now(UTC).isoformat())
 
     @classmethod
-    def from_comment(cls, comment: str) -> Optional["SpecMetadata"]:
+    def from_comment(cls, comment: str) -> Optional["TestCaseMetadata"]:
         """Try to parse metadata from a comment string"""
         try:
             if not comment.startswith("# @META:"):
@@ -47,10 +47,10 @@ class SpecMetadata:
         return f"# @META:{json.dumps(self.__dict__)}\n# This comment contains machine-readable metadata that should not be modified"
 
 
-class YamlSpec:
-    def __init__(self, data: Any, metadata: Optional[SpecMetadata] = None):
+class YamlTestcase:
+    def __init__(self, data: Any, metadata: Optional[TestCaseMetadata] = None):
         self.data = data[0] if isinstance(data, list) and len(data) == 1 else data
-        self.metadata = metadata or SpecMetadata.create_new()
+        self.metadata = metadata or TestCaseMetadata.create_new()
 
     def to_yaml(self) -> str:
         """Convert spec to YAML string with metadata comment"""
@@ -60,9 +60,9 @@ class YamlSpec:
         return f"{self.metadata.to_comment()}\n{yaml_str}"
 
 
-def parse_yaml_with_specs(content: str) -> List[YamlSpec]:
-    """Parse YAML content and extract specs with their metadata"""
-    specs = []
+def parse_yaml_with_testcases(content: str) -> List[YamlTestcase]:
+    """Parse YAML content and extract test cases with their metadata"""
+    test_cases = []
     current_lines = []
     current_metadata = None
 
@@ -70,26 +70,28 @@ def parse_yaml_with_specs(content: str) -> List[YamlSpec]:
 
     for line in lines:
         if line.strip().startswith("# @META:"):
-            # If we have accumulated lines, process them as a spec
+            # If we have accumulated lines, process them as a test case
             if current_lines:
                 try:
-                    spec_data = yaml.safe_load("\n".join(current_lines))
-                    if spec_data:
-                        specs.append(YamlSpec(spec_data, current_metadata))
+                    test_case_data = yaml.safe_load("\n".join(current_lines))
+                    if test_case_data:
+                        test_cases.append(
+                            YamlTestcase(test_case_data, current_metadata)
+                        )
                 except yaml.YAMLError as e:
                     logger.warning(f"Failed to parse YAML content: {e}")
                 current_lines = []
 
-            current_metadata = SpecMetadata.from_comment(line)
+            current_metadata = TestCaseMetadata.from_comment(line)
         elif line.strip() and not line.strip().startswith("#"):
             current_lines.append(line)
 
-        # Empty line could be a separator between specs
+        # Empty line could be a separator between test cases
         elif not line.strip() and current_lines:
             try:
-                spec_data = yaml.safe_load("\n".join(current_lines))
-                if spec_data:
-                    specs.append(YamlSpec(spec_data, current_metadata))
+                test_case_data = yaml.safe_load("\n".join(current_lines))
+                if test_case_data:
+                    test_cases.append(YamlTestcase(test_case_data, current_metadata))
                 current_lines = []
                 current_metadata = None
             except yaml.YAMLError as e:
@@ -98,28 +100,28 @@ def parse_yaml_with_specs(content: str) -> List[YamlSpec]:
     # Process any remaining lines
     if current_lines:
         try:
-            spec_data = yaml.safe_load("\n".join(current_lines))
-            if spec_data:
-                specs.append(YamlSpec(spec_data, current_metadata))
+            test_case_data = yaml.safe_load("\n".join(current_lines))
+            if test_case_data:
+                test_cases.append(YamlTestcase(test_case_data, current_metadata))
         except yaml.YAMLError as e:
             logger.warning(f"Failed to parse YAML content: {e}")
 
-    return specs
+    return test_cases
 
 
-def load_yaml_specs(file_path: Path) -> List[YamlSpec]:
-    """Load specs from a YAML file"""
+def load_spec(file_path: Path) -> List[YamlTestcase]:
+    """Load test cases from a YAML file"""
     if not file_path.exists():
         raise FileNotFoundError(f"File not found: {file_path}")
 
     with open(file_path) as f:
         content = f.read()
 
-    return parse_yaml_with_specs(content)
+    return parse_yaml_with_testcases(content)
 
 
-def save_yaml_specs(file_path: Path, specs: List[YamlSpec]) -> None:
-    """Save specs to a YAML file"""
-    content = "\n\n".join(spec.to_yaml() for spec in specs)
+def save_spec(file_path: Path, test_cases: List[YamlTestcase]) -> None:
+    """Save test cases to a YAML file"""
+    content = "\n\n".join(test_case.to_yaml() for test_case in test_cases)
     with open(file_path, "w") as f:
         f.write(content)

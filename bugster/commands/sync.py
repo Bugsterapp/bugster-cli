@@ -10,13 +10,13 @@ from rich.status import Status
 import subprocess
 from datetime import datetime, UTC
 
-from bugster.libs.services.specs_service import SpecsService
+from bugster.libs.services.specs_service import SyncService
 from bugster.commands.middleware import require_api_key
 from bugster.utils.yaml_spec import (
-    load_yaml_specs,
-    save_yaml_specs,
-    YamlSpec,
-    SpecMetadata,
+    load_spec,
+    save_spec,
+    YamlTestcase,
+    TestCaseMetadata,
 )
 from bugster.constants import TESTS_DIR
 
@@ -38,9 +38,9 @@ def get_current_branch() -> str:
 
 
 def sync_specs(
-    specs_service: SpecsService,
+    sync_service: SyncService,
     branch: str,
-    local_specs: Dict[str, List[YamlSpec]],
+    local_specs: Dict[str, List[YamlTestcase]],
     remote_specs: dict,
     dry_run: bool = False,
     prefer: Optional[str] = None,
@@ -58,9 +58,9 @@ def sync_specs(
         # Create maps of specs by ID for easier comparison
         local_by_id = {spec.metadata.id: spec for spec in local}
         remote_by_id = {
-            spec["metadata"]["id"]: YamlSpec(
+            spec["metadata"]["id"]: YamlTestcase(
                 spec["content"],
-                SpecMetadata(
+                TestCaseMetadata(
                     id=spec["metadata"]["id"],
                     last_modified=spec["metadata"]["last_modified"],
                 ),
@@ -90,14 +90,14 @@ def sync_specs(
                         }
                     )
                 console.print(
-                    f"[green]↑ Will upload new spec: {file_path} ({spec_id})[/green]"
+                    f"[green]↑ Will upload new test case: {file_path} ({spec_id})[/green]"
                 )
 
             elif not local_spec and remote_spec:
                 if not dry_run:
                     file_specs_to_save.append(remote_spec)
                 console.print(
-                    f"[blue]↓ Will download new spec: {file_path} ({spec_id})[/blue]"
+                    f"[blue]↓ Will download new test case: {file_path} ({spec_id})[/blue]"
                 )
 
             elif local_spec and remote_spec:
@@ -105,7 +105,7 @@ def sync_specs(
                 if local_spec.data == remote_spec.data:
                     # Content is the same, no sync needed
                     console.print(
-                        f"[dim]  No changes needed for spec: {file_path} ({spec_id})[/dim]"
+                        f"[dim]  No changes needed for test case: {file_path} ({spec_id})[/dim]"
                     )
                     continue
 
@@ -167,7 +167,7 @@ def sync_specs(
     # Perform all remote operations in a single call
     if not dry_run:
         if specs_to_upload:
-            specs_service.upload_specs(branch, specs_to_upload)
+            sync_service.upload_test_cases(branch, specs_to_upload)
 
         # Save all local changes
         for file_path, specs in specs_to_save.items():
@@ -175,7 +175,7 @@ def sync_specs(
             # Ensure parent directories exist
             full_path.parent.mkdir(parents=True, exist_ok=True)
 
-            existing_specs = load_yaml_specs(full_path) if full_path.exists() else []
+            existing_specs = load_spec(full_path) if full_path.exists() else []
             # Remove specs that will be updated
             existing_specs = [
                 s
@@ -184,7 +184,7 @@ def sync_specs(
             ]
             # Add new/updated specs
             existing_specs.extend(specs)
-            save_yaml_specs(full_path, existing_specs)
+            save_spec(full_path, existing_specs)
 
 
 @require_api_key
@@ -199,7 +199,7 @@ def sync_command(
     """Synchronize local and remote specs."""
     try:
         branch = branch or get_current_branch()
-        specs_service = SpecsService()
+        sync_service = SyncService()
 
         with Status("[yellow]Loading specs...[/yellow]", spinner="dots") as status:
             # Load local specs
@@ -207,15 +207,15 @@ def sync_command(
             if TESTS_DIR.exists():
                 for file in TESTS_DIR.rglob("*.yaml"):
                     rel_path = file.relative_to(TESTS_DIR)
-                    local_specs[str(rel_path)] = load_yaml_specs(file)
+                    local_specs[str(rel_path)] = load_spec(file)
 
             # Load remote specs
-            remote_specs = specs_service.get_remote_specs(branch)
+            remote_specs = sync_service.get_remote_test_cases(branch)
 
             status.update("[green]Specs loaded successfully![/green]")
 
         # Keep track of specs that were processed during sync to maintain metadata consistency
-        processed_specs = {}  # file_path -> {spec_id -> YamlSpec}
+        processed_specs = {}  # file_path -> {spec_id -> YamlTestcase}
 
         # If neither pull nor push is specified, do both
         do_pull = pull or (not pull and not push)
@@ -226,29 +226,32 @@ def sync_command(
             files_to_delete = set(remote_specs.keys()) - set(local_specs.keys())
 
             # Find individual specs that exist in remote but not in local (only in files that exist locally)
-            specs_to_delete = {}
-            for file_path, remote_file_specs in remote_specs.items():
+            test_cases_to_delete = {}
+            for file_path, remote_file_test_cases in remote_specs.items():
                 # Skip files that will be deleted entirely
                 if file_path in files_to_delete:
                     continue
 
-                local_file_specs = local_specs.get(file_path, [])
-                local_spec_ids = {spec.metadata.id for spec in local_file_specs}
+                local_file_test_cases = local_specs.get(file_path, [])
+                local_test_case_ids = {
+                    test_case.metadata.id for test_case in local_file_test_cases
+                }
 
                 # Find remote specs that don't exist locally
-                remote_specs_to_delete = [
-                    spec
-                    for spec in remote_file_specs
-                    if spec["metadata"]["id"] not in local_spec_ids
+                remote_test_cases_to_delete = [
+                    test_case
+                    for test_case in remote_file_test_cases
+                    if test_case["metadata"]["id"] not in local_test_case_ids
                 ]
 
-                if remote_specs_to_delete:
-                    specs_to_delete[file_path] = [
-                        spec["metadata"]["id"] for spec in remote_specs_to_delete
+                if remote_test_cases_to_delete:
+                    test_cases_to_delete[file_path] = [
+                        test_case["metadata"]["id"]
+                        for test_case in remote_test_cases_to_delete
                     ]
-                    for spec in remote_specs_to_delete:
+                    for test_case in remote_test_cases_to_delete:
                         console.print(
-                            f"[yellow]Will delete remote spec: {file_path} ({spec['metadata']['id']})[/yellow]"
+                            f"[yellow]Will delete remote test case: {file_path} ({test_case['metadata']['id']})[/yellow]"
                         )
 
             # Show files that will be deleted entirely
@@ -259,24 +262,27 @@ def sync_command(
                     )
 
             if not dry_run:
-                if specs_to_delete:
-                    specs_service.delete_specific_specs(branch, specs_to_delete)
+                if test_cases_to_delete:
+                    sync_service.delete_specific_test_cases(
+                        branch, test_cases_to_delete
+                    )
                 if files_to_delete:
-                    specs_service.delete_specs(branch, list(files_to_delete))
+                    sync_service.delete_specs(branch, list(files_to_delete))
 
-                total_deleted_specs = sum(
-                    len(spec_ids) for spec_ids in specs_to_delete.values()
+                total_deleted_test_cases = sum(
+                    len(test_case_ids)
+                    for test_case_ids in test_cases_to_delete.values()
                 )
-                if total_deleted_specs > 0 or files_to_delete:
+                if total_deleted_test_cases > 0 or files_to_delete:
                     console.print(
-                        f"\n[yellow]Deleted {total_deleted_specs} individual specs and {len(files_to_delete)} complete files from remote[/yellow]"
+                        f"\n[yellow]Deleted {total_deleted_test_cases} test cases and {len(files_to_delete)} complete files from remote[/yellow]"
                     )
 
         elif do_pull and do_push:
             # When doing both pull and push, do a full sync
             console.print("\n[cyan]Synchronizing specs...[/cyan]")
             sync_specs(
-                specs_service,
+                sync_service,
                 branch,
                 local_specs,
                 remote_specs,
@@ -284,14 +290,16 @@ def sync_command(
                 prefer=prefer,
                 tests_dir=TESTS_DIR,
             )
-            # Track processed specs
-            for file_path, specs in local_specs.items():
-                processed_specs[file_path] = {spec.metadata.id: spec for spec in specs}
+            # Track processed test cases
+            for file_path, test_cases in local_specs.items():
+                processed_specs[file_path] = {
+                    test_case.metadata.id: test_case for test_case in test_cases
+                }
         else:
             if do_pull:
                 console.print("\n[blue]Pulling specs from remote...[/blue]")
                 sync_specs(
-                    specs_service,
+                    sync_service,
                     branch,
                     {},  # No local specs for pull
                     remote_specs,
@@ -303,7 +311,7 @@ def sync_command(
             if do_push:
                 console.print("\n[green]Pushing specs to remote...[/green]")
                 sync_specs(
-                    specs_service,
+                    sync_service,
                     branch,
                     local_specs,
                     {},  # No remote specs for push
@@ -311,38 +319,40 @@ def sync_command(
                     prefer=prefer,
                     tests_dir=TESTS_DIR,
                 )
-                # Track processed specs for push
-                for file_path, specs in local_specs.items():
+                # Track processed test cases for push
+                for file_path, test_cases in local_specs.items():
                     processed_specs[file_path] = {
-                        spec.metadata.id: spec for spec in specs
+                        test_case.metadata.id: test_case for test_case in test_cases
                     }
 
-        # Final step: Ensure all local specs are saved with metadata
+        # Final step: Ensure all local test cases are saved with metadata
         if not dry_run and TESTS_DIR.exists():
             console.print("\n[cyan]Updating local files with metadata...[/cyan]")
             for file in TESTS_DIR.rglob("*.yaml"):
                 try:
                     rel_path = str(file.relative_to(TESTS_DIR))
 
-                    # Load specs (this will auto-generate metadata for specs that don't have it)
-                    specs = load_yaml_specs(file)
+                    # Load test cases (this will auto-generate metadata for test cases that don't have it)
+                    test_cases = load_spec(file)
 
-                    # If we have processed specs for this file, use their metadata to maintain consistency
+                    # If we have processed test cases for this file, use their metadata to maintain consistency
                     if rel_path in processed_specs:
                         processed_specs_by_content = {}
-                        for spec_id, processed_spec in processed_specs[
+                        for test_case_id, processed_test_case in processed_specs[
                             rel_path
                         ].items():
-                            # Create a key based on spec content to match with loaded specs
-                            content_key = str(processed_spec.data)
-                            processed_specs_by_content[content_key] = processed_spec
+                            # Create a key based on test case content to match with loaded test cases
+                            content_key = str(processed_test_case.data)
+                            processed_specs_by_content[content_key] = (
+                                processed_test_case
+                            )
 
                         # Update loaded specs with processed metadata where content matches
-                        for spec in specs:
-                            content_key = str(spec.data)
+                        for test_case in test_cases:
+                            content_key = str(test_case.data)
                             if content_key in processed_specs_by_content:
                                 # Use the metadata from the processed spec to maintain consistency
-                                spec.metadata = processed_specs_by_content[
+                                test_case.metadata = processed_specs_by_content[
                                     content_key
                                 ].metadata
 
@@ -351,11 +361,13 @@ def sync_command(
                         original_content = f.read()
 
                     # Generate new content with metadata
-                    new_content = "\n\n".join(spec.to_yaml() for spec in specs)
+                    new_content = "\n\n".join(
+                        test_case.to_yaml() for test_case in test_cases
+                    )
 
                     # Only write if content has changed (to avoid unnecessary file modifications)
                     if original_content.strip() != new_content.strip():
-                        save_yaml_specs(file, specs)
+                        save_spec(file, test_cases)
                         rel_path = file.relative_to(TESTS_DIR)
                         console.print(
                             f"[cyan]  ✓ Updated metadata in {rel_path}[/cyan]"

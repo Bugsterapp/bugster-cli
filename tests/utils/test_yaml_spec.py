@@ -10,17 +10,17 @@ import uuid
 import json
 
 from bugster.utils.yaml_spec import (
-    SpecMetadata,
-    YamlSpec,
-    parse_yaml_with_specs,
-    load_yaml_specs,
-    save_yaml_specs,
+    TestCaseMetadata,
+    YamlTestcase,
+    parse_yaml_with_testcases,
+    load_spec,
+    save_spec,
 )
 
 
 def test_spec_metadata_creation():
     """Test creation of new metadata"""
-    metadata = SpecMetadata.create_new()
+    metadata = TestCaseMetadata.create_new()
     assert isinstance(metadata.id, str)
     assert uuid.UUID(metadata.id)  # Validates UUID format
     assert datetime.fromisoformat(metadata.last_modified)  # Validates ISO format
@@ -29,7 +29,7 @@ def test_spec_metadata_creation():
 def test_metadata_from_comment():
     """Test parsing metadata from comment"""
     comment = '# @META:{"id":"123","last_modified":"2024-03-20T10:00:00"}'
-    metadata = SpecMetadata.from_comment(comment)
+    metadata = TestCaseMetadata.from_comment(comment)
     assert metadata is not None
     assert metadata.id == "123"
     assert metadata.last_modified == "2024-03-20T10:00:00"
@@ -38,7 +38,7 @@ def test_metadata_from_comment():
 def test_metadata_from_legacy_comment():
     """Test parsing metadata from legacy comment with version field"""
     comment = '# @META:{"id":"123","version":2,"last_modified":"2024-03-20T10:00:00"}'
-    metadata = SpecMetadata.from_comment(comment)
+    metadata = TestCaseMetadata.from_comment(comment)
     assert metadata is not None
     assert metadata.id == "123"
     assert metadata.last_modified == "2024-03-20T10:00:00"
@@ -49,16 +49,16 @@ def test_metadata_from_legacy_comment():
 def test_metadata_from_invalid_comment():
     """Test parsing invalid metadata comment"""
     comment = "# Invalid comment"
-    metadata = SpecMetadata.from_comment(comment)
+    metadata = TestCaseMetadata.from_comment(comment)
     assert metadata is None
 
 
 def test_yaml_spec_creation():
-    """Test creation of YamlSpec"""
+    """Test creation of YamlTestcase"""
     data = {"name": "Test", "steps": ["step1", "step2"]}
-    spec = YamlSpec(data)
+    spec = YamlTestcase(data)
     assert spec.data == data
-    assert isinstance(spec.metadata, SpecMetadata)
+    assert isinstance(spec.metadata, TestCaseMetadata)
 
 
 def test_parse_yaml_with_specs():
@@ -76,7 +76,7 @@ def test_parse_yaml_with_specs():
 - name: Test 3
   steps: [step5, step6]
 """
-    specs = parse_yaml_with_specs(content)
+    specs = parse_yaml_with_testcases(content)
     assert len(specs) == 3
 
     # First spec should have metadata
@@ -110,17 +110,17 @@ def test_load_and_save_yaml_specs():
 
     try:
         # Load specs
-        specs = load_yaml_specs(tmp_path)
+        specs = load_spec(tmp_path)
         assert len(specs) == 2
         assert specs[0].metadata.id == "123"
         assert specs[1].metadata.id == "456"
 
         # Save specs to new file
         new_path = tmp_path.parent / "new_test.yaml"
-        save_yaml_specs(new_path, specs)
+        save_spec(new_path, specs)
 
         # Load saved specs and verify
-        loaded_specs = load_yaml_specs(new_path)
+        loaded_specs = load_spec(new_path)
         assert len(loaded_specs) == 2
         assert loaded_specs[0].metadata.id == "123"
         assert loaded_specs[1].metadata.id == "456"
@@ -135,4 +135,4 @@ def test_load_and_save_yaml_specs():
 def test_load_yaml_specs_file_not_found():
     """Test loading specs from non-existent file"""
     with pytest.raises(FileNotFoundError):
-        load_yaml_specs(Path("non_existent.yaml"))
+        load_spec(Path("non_existent.yaml"))
