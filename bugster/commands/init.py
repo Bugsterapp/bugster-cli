@@ -10,7 +10,7 @@ from rich.console import Console
 from rich.table import Table
 
 from bugster.constants import (
-    WORKING_DIR,
+    BUGSTER_DIR,
     CONFIG_PATH,
     EXAMPLE_DIR,
     EXAMPLE_TEST_FILE,
@@ -45,12 +45,11 @@ def generate_project_id(name):
 
 def update_gitignore():
     """Create or update .gitignore to ignore videos, next, and example directories."""
-    gitignore_path = WORKING_DIR / ".gitignore"
+    gitignore_path = BUGSTER_DIR / ".gitignore"
     ignore_patterns = [
         "videos/",
-        ".bugster/next/",
-        ".bugster/tests/example/",
-        ".bugster/project.json",
+        "next/",
+        "project.json",
     ]
 
     # Check if .gitignore exists
