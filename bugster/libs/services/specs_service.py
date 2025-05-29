@@ -4,8 +4,6 @@ Specs service for Bugster remote operations.
 
 from typing import Dict, List
 import requests
-from loguru import logger
-from datetime import datetime, UTC, timedelta
 
 from bugster.libs.settings import libs_settings
 from bugster.utils.user_config import get_api_key
