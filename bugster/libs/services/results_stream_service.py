@@ -3,7 +3,6 @@ Results streaming service for Bugster test execution.
 """
 
 from pathlib import Path
-from typing import Optional
 import requests
 
 from bugster.libs.settings import libs_settings
