@@ -47,11 +47,17 @@ def test(
     silent: Optional[bool] = typer.Option(
         False, "--silent", "-s", help="Run in silent mode (less verbose output)"
     ),
+    stream_results: Optional[bool] = typer.Option(
+        False, "--stream-results", help="Stream test results as they complete"
+    ),
+    output: Optional[str] = typer.Option(
+        None, "--output", help="Save test results to JSON file"
+    ),
 ):
     """[bold yellow]Run[/bold yellow] Bugster tests. If no path is provided, runs all tests in .bugster/tests."""
     from bugster.commands.test import test_command
 
-    asyncio.run(test_command(path, headless, silent))
+    asyncio.run(test_command(path, headless, silent, stream_results, output))
 
 
 @app.command()

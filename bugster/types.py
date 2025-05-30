@@ -2,12 +2,16 @@ from typing import Literal, Optional, Union, Any
 from pydantic import BaseModel
 
 
+class TestMetadata(BaseModel):
+    id: str
+    last_modified: str
+
+
 class Test(BaseModel):
-    id: Optional[str] = None
-    version: Optional[str] = None
     name: str
     task: str
     expected_result: str
+    metadata: TestMetadata
     steps: Optional[list[str]] = None
 
 
@@ -67,4 +71,5 @@ class WebSocketCompleteMessage(WebSocketMessage):
 
 class NamedTestResult(TestResult):
     name: str
+    metadata: TestMetadata
     time: Optional[float] = None

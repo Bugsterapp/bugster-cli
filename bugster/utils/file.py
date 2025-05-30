@@ -48,7 +48,7 @@ def load_test_files(test_path: Optional[Path] = None) -> List[dict]:
             for test_case in test_cases:
                 test_data = test_case.data
                 # Add metadata as hidden fields
-                test_data["_metadata"] = {
+                test_data["metadata"] = {
                     "id": test_case.metadata.id,
                     "last_modified": test_case.metadata.last_modified,
                 }
@@ -83,9 +83,11 @@ def get_mcp_config_path(mcp_config: dict, version: str) -> str:
     config_path = Path(temp_dir) / f"bugster_mcp_{version}.config.json"
 
     # Only create the file if it doesn't exist
-    if not config_path.exists():
-        # Write the configuration
-        with open(config_path, "w") as f:
-            json.dump(mcp_config, f, indent=2)
+    # if not config_path.exists():
+    #     # Write the configuration
+    #     with open(config_path, "w") as f:
+    #         json.dump(mcp_config, f, indent=2)
+    with open(config_path, "w") as f:
+        json.dump(mcp_config, f, indent=2)
 
     return str(config_path)
