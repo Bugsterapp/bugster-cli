@@ -69,20 +69,33 @@ def analyze(
         help="Force analysis even if the codebase has already been analyzed",
     ),
 ):
-    """[bold magenta]Analyze[/bold magenta] your codebase generates test specs."""
+    """[bold magenta]Analyze[/bold magenta] your codebase to generate test specs."""
     from bugster.commands.analyze import analyze_command
 
     analyze_command(options={"show_logs": show_logs, "force": force})
 
 
 @app.command()
-def update():
+def update(
+    update_only: bool = typer.Option(
+        False, help="Only update existing specs, no suggestions or deletes"
+    ),
+    suggest_only: bool = typer.Option(
+        False, help="Only suggest new specs, no updates or deletes"
+    ),
+    delete_only: bool = typer.Option(
+        False, help="Only delete specs, no updates or suggestions"
+    ),
+):
     """[bold magenta]Update[/bold magenta] your codebase with the latest changes."""
     from bugster.commands.update import update_command
 
-    update_command()
+    update_command(
+        update_only=update_only, suggest_only=suggest_only, delete_only=delete_only
+    )
 
 
+@app.command()
 def sync(
     branch: Optional[str] = typer.Option(
         None, help="Branch to sync with (defaults to current git branch or 'main')"

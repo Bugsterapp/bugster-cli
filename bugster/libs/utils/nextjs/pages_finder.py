@@ -1,30 +1,20 @@
-import os
+from pathlib import Path
 from typing import Dict, List, Set
 
 from rich.console import Console
 
-from bugster.analyzer.core.framework_detector.main import get_project_info
-from bugster.constants import BUGSTER_DIR
-from bugster.libs.utils.nextjs.import_tree_generator import ImportTreeGenerator
-
 console = Console()
 
 
-def find_pages_that_use_file(file_path: str) -> list[str]:
+def find_pages_that_use_file(file_path: str, import_tree: Dict) -> list[str]:
     """Find the Next.js pages that use the given file."""
-    framework_id = get_project_info()["data"]["frameworks"][0]["id"]
-    cache_framework_dir = os.path.join(BUGSTER_DIR, framework_id)
-    output_file = os.path.join(cache_framework_dir, "import_tree.json")
-    generator = ImportTreeGenerator()
-    tree = generator.generate_tree()
-    generator.save_to_json(tree=tree, filename=output_file)
-    results = find_pages_using_file(tree_data=tree, target_file=file_path)
+    results = find_pages_using_file(tree_data=import_tree, target_file=file_path)
 
     if results:
         return [result["page"] for result in results]
-    else:
-        console.print(f"✗ File '{file_path}' is not imported by any page")
-        return []
+
+    console.print(f"✗ File '{file_path}' is not imported by any page")
+    return []
 
 
 def find_pages_using_file(tree_data: Dict, target_file: str) -> List[Dict]:
@@ -128,3 +118,128 @@ def get_files_from_imports(imports: Dict, visited: Set[str] = None) -> Set[str]:
                     )
 
     return files
+
+
+def is_nextjs_page(file_path: str) -> bool:
+    """Determine if a file path represents a Next.js page.
+
+    Next.js pages are typically located in:
+    - pages/ directory (Pages Router)
+    - app/ directory (App Router - page.tsx/jsx files)
+    - src/pages/ directory
+    - src/app/ directory
+
+    This excludes:
+    - Components (usually in components/, ui/, shared/ etc.)
+    - Hooks (files starting with 'use' or in hooks/ directory)
+    - Utilities (utils/, lib/, helpers/ directories)
+    - API routes (api/ subdirectory)
+    - Layout files, loading files, error files, etc.
+    - Non-JS/TS files
+    """
+    if not file_path:
+        return False
+
+    # Convert to Path object for easier manipulation
+    path = Path(file_path)
+
+    # Must be a JavaScript/TypeScript file
+    if path.suffix not in [".js", ".jsx", ".ts", ".tsx"]:
+        return False
+
+    # Get path parts for analysis
+    parts = path.parts
+
+    # Skip if it's in common non-page directories
+    non_page_dirs = {
+        "components",
+        "hooks",
+        "utils",
+        "lib",
+        "helpers",
+        "shared",
+        "common",
+        "constants",
+        "types",
+        "interfaces",
+        "services",
+        "store",
+        "context",
+        "providers",
+        "styles",
+        "public",
+    }
+
+    if any(part.lower() in non_page_dirs for part in parts):
+        return False
+
+    # Skip hook files (files starting with 'use')
+    if path.stem.startswith("use") and path.stem != "use":
+        return False
+
+    # Check for App Router pages (app directory structure)
+    if "app" in parts:
+        app_index = parts.index("app")
+        # Must be named 'page' (page.tsx, page.jsx, etc.)
+        if path.stem == "page":
+            # Skip API routes in app directory
+            remaining_parts = parts[app_index + 1 :]
+            if "api" not in remaining_parts:
+                return True
+        return False
+
+    # Check for Pages Router (pages directory structure)
+    if "pages" in parts:
+        pages_index = parts.index("pages")
+        remaining_parts = parts[pages_index + 1 :]
+
+        # Skip API routes
+        if remaining_parts and remaining_parts[0] == "api":
+            return False
+
+        # Skip special Next.js files
+        special_files = {
+            "_app",
+            "_document",
+            "_error",
+            "404",
+            "500",
+            "_middleware",
+            "middleware",
+        }
+
+        if path.stem in special_files:
+            return False
+
+        return True
+
+    # For files in src/ directory, check if they follow the same patterns
+    if "src" in parts:
+        src_index = parts.index("src")
+        remaining_parts = parts[src_index + 1 :]
+
+        if len(remaining_parts) > 0:
+            # Recursively check the path after src/
+            sub_path = "/".join(remaining_parts)
+            return is_nextjs_page(sub_path)
+
+    return False
+
+
+def get_affected_pages(file_paths: list[str], import_tree: dict):
+    """Get the affected pages."""
+    affected_pages = set()
+
+    for file_path in file_paths:
+        if is_nextjs_page(file_path=file_path):
+            affected_pages.add(file_path)
+        else:
+            pages = find_pages_that_use_file(
+                file_path=file_path, import_tree=import_tree
+            )
+
+            if pages:
+                for page in pages:
+                    affected_pages.add(page)
+
+    return affected_pages

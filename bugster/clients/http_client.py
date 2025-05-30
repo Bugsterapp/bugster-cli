@@ -1,11 +1,17 @@
-import logging
 from typing import Any, Dict, Optional
 
 import requests
+from loguru import logger
 
 from bugster.libs.settings import libs_settings
 
-logger = logging.getLogger(__name__)
+
+class BugsterHTTPError(Exception):
+    """Bugster HTTP error."""
+
+    def __init__(self, message: str):
+        """Initialize the Bugster HTTP error."""
+        super().__init__(message)
 
 
 class HTTPClient:
@@ -65,16 +71,17 @@ class HTTPClient:
             logger.info("Received data: {}", data)
             return data
         except requests.exceptions.HTTPError as err:
-            if response and hasattr(response, "text"):
-                logger.error(
-                    "HTTP error for {} {}: {} - {}", method, url, err, response.text
-                )
-            else:
-                logger.error("HTTP error for {} {}: {}", method, url, err)
-            raise
+            msg = f"HTTP error for {method} {url}: {err}"
+
+            if hasattr(err, "response") and hasattr(err.response, "text"):
+                msg += f" - {err.response.text}"
+
+            logger.error(msg)
+            raise BugsterHTTPError(msg) from err
         except Exception as err:
-            logger.error("Error making {} request to {}: {}", method, url, err)
-            raise
+            msg = f"Error making {method} request to {url}: {err}"
+            logger.error(msg)
+            raise BugsterHTTPError(msg) from err
 
     def set_auth_header(self, token: str, auth_type: str = "Bearer"):
         """Set authentication header for all requests."""

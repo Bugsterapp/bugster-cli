@@ -12,6 +12,9 @@ class FileChange:
     old_hash: str
     new_hash: str
     hunks: List[Dict[str, Any]]
+    is_deleted: bool = False
+    is_new: bool = False
+    file_mode: str = None
 
 
 @dataclass
@@ -38,9 +41,23 @@ class ParsedDiff:
         """Format a single file change for LLM consumption."""
         result = []
 
-        result.append(f"📁 File: {file_change.new_path}")
-        result.append(f"   Old version: {file_change.old_hash}")
-        result.append(f"   New version: {file_change.new_hash}")
+        if file_change.is_deleted:
+            result.append(f"🗑️  File DELETED: {file_change.old_path}")
+            result.append(f"   File mode: {file_change.file_mode}")
+            result.append(f"   Old version: {file_change.old_hash}")
+            result.append(f"   New version: {file_change.new_hash}")
+            result.append("   This file was completely removed from the repository.")
+        elif file_change.is_new:
+            result.append(f"✨ File ADDED: {file_change.new_path}")
+            result.append(f"   File mode: {file_change.file_mode}")
+            result.append(f"   Old version: {file_change.old_hash}")
+            result.append(f"   New version: {file_change.new_hash}")
+            result.append("   This is a completely new file added to the repository.")
+        else:
+            result.append(f"📁 File MODIFIED: {file_change.new_path}")
+            result.append(f"   Old version: {file_change.old_hash}")
+            result.append(f"   New version: {file_change.new_hash}")
+
         result.append("")
 
         for i, hunk in enumerate(file_change.hunks, 1):
@@ -93,6 +110,28 @@ def parse_git_diff(diff_text: str) -> ParsedDiff:
             old_path = git_match.group(1)
             new_path = git_match.group(2)
 
+            # Check for deleted/new file in the next few lines
+            is_deleted = False
+            is_new = False
+            file_mode = None
+            j = i + 1
+
+            # Look ahead for file mode changes or index line
+            while j < len(lines) and j < i + 5:  # Check next few lines
+                if lines[j].startswith("deleted file mode"):
+                    is_deleted = True
+                    mode_match = re.match(r"deleted file mode (\d+)", lines[j])
+                    file_mode = mode_match.group(1) if mode_match else None
+                    break
+                elif lines[j].startswith("new file mode"):
+                    is_new = True
+                    mode_match = re.match(r"new file mode (\d+)", lines[j])
+                    file_mode = mode_match.group(1) if mode_match else None
+                    break
+                elif lines[j].startswith("index"):
+                    break
+                j += 1
+
             # Skip to index line
             i += 1
             while i < len(lines) and not lines[i].startswith("index"):
@@ -106,14 +145,23 @@ def parse_git_diff(diff_text: str) -> ParsedDiff:
             old_hash = index_match.group(1) if index_match else ""
             new_hash = index_match.group(2) if index_match else ""
 
+            # Additional check for new files based on hash (0000000 indicates new file)
+            if old_hash == "0000000" or old_hash.startswith("000000"):
+                is_new = True
+            elif new_hash == "0000000" or new_hash.startswith("000000"):
+                is_deleted = True
+
             # Skip file mode and path lines
             i += 1
             while i < len(lines) and (
-                lines[i].startswith("---") or lines[i].startswith("+++")
+                lines[i].startswith("---")
+                or lines[i].startswith("+++")
+                or lines[i].startswith("deleted file mode")
+                or lines[i].startswith("new file mode")
             ):
                 i += 1
 
-            # Parse hunks
+            # Parse hunks (deleted files typically have no hunks, new files have only additions)
             hunks = []
             while i < len(lines) and lines[i].startswith("@@"):
                 hunk = parse_hunk(lines, i)
@@ -124,7 +172,18 @@ def parse_git_diff(diff_text: str) -> ParsedDiff:
                 if i < len(lines) and lines[i].startswith("diff --git"):
                     break
 
-            files.append(FileChange(old_path, new_path, old_hash, new_hash, hunks))
+            files.append(
+                FileChange(
+                    old_path=old_path,
+                    new_path=new_path,
+                    old_hash=old_hash,
+                    new_hash=new_hash,
+                    hunks=hunks,
+                    is_deleted=is_deleted,
+                    is_new=is_new,
+                    file_mode=file_mode,
+                )
+            )
         else:
             i += 1
 

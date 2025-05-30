@@ -1,9 +1,13 @@
 import json
+import os
 import re
 from pathlib import Path
 from typing import Dict, List, Optional, Set
 
 from loguru import logger
+
+from bugster.analyzer.core.framework_detector.main import get_project_info
+from bugster.constants import BUGSTER_DIR
 
 
 class ImportTreeGenerator:
@@ -42,7 +46,7 @@ class ImportTreeGenerator:
         imports = []
 
         try:
-            with open(filepath, "r", encoding="utf-8") as file:
+            with open(filepath, encoding="utf-8") as file:
                 content = file.read()
 
             # Remove comments to avoid false positives
@@ -192,7 +196,7 @@ class ImportTreeGenerator:
             return
 
         try:
-            with open(tsconfig_path, "r") as f:
+            with open(tsconfig_path) as f:
                 tsconfig = json.load(f)
 
             compiler_options = tsconfig.get("compilerOptions", {})
@@ -201,7 +205,7 @@ class ImportTreeGenerator:
             # Store base URL if present
             self.base_url = compiler_options.get("baseUrl", "./")
 
-        except (json.JSONDecodeError, IOError) as e:
+        except (OSError, json.JSONDecodeError) as e:
             logger.warning("Could not load tsconfig.json: {}", e)
             self.path_mappings = {}
 
@@ -393,3 +397,14 @@ class ImportTreeGenerator:
             json.dump(tree, f, indent=2, ensure_ascii=False)
 
         logger.info("Import tree saved to {}", filename)
+
+
+def generate_and_save_import_tree() -> Dict:
+    """Generate the import tree for the project."""
+    framework_id = get_project_info()["data"]["frameworks"][0]["id"]
+    cache_framework_dir = os.path.join(BUGSTER_DIR, framework_id)
+    output_file = os.path.join(cache_framework_dir, "import_tree.json")
+    generator = ImportTreeGenerator()
+    tree = generator.generate_tree()
+    generator.save_to_json(tree=tree, filename=output_file)
+    return tree

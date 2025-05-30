@@ -1,48 +1,21 @@
-import fnmatch
 import glob
 import os
 from typing import Dict, List, Literal, TypedDict, Union
 
-import pathspec
 from loguru import logger
 
-from bugster.constants import IGNORE_PATTERNS
+from bugster.libs.utils.files import filter_path
 
 
-def get_gitignore(dir_path: str):
-    """Get the `.gitignore` rules for a directory."""
-    try:
-        gitignore_path = os.path.join(dir_path, ".gitignore")
-
-        if os.path.exists(gitignore_path):
-            with open(gitignore_path, "r") as f:
-                gitignore = pathspec.PathSpec.from_lines(
-                    pathspec.patterns.GitWildMatchPattern, f.readlines()
-                )
-        else:
-            gitignore = None
-    except ImportError:
-        gitignore = None
-
-    return gitignore
-
-
-def filter_paths(all_paths: List[str], gitignore=None):
+def filter_paths(all_paths: List[str]):
     """Filter paths based on ignore patterns and `.gitignore` rules."""
     filtered_paths = []
 
     for path in all_paths:
-        if os.path.isdir(path):
-            continue
+        filtered_path = filter_path(path=path)
 
-        if any(fnmatch.fnmatch(path, pattern) for pattern in IGNORE_PATTERNS):
-            continue
-
-        if gitignore and gitignore.match_file(path):
-            continue
-
-        normalized_path = path.replace(os.sep, "/")
-        filtered_paths.append(normalized_path)
+        if filtered_path:
+            filtered_paths.append(filtered_path)
 
     filtered_paths.sort()
     return filtered_paths
@@ -51,11 +24,10 @@ def filter_paths(all_paths: List[str], gitignore=None):
 def get_paths(dir_path: str) -> List[str]:
     """Get all file paths in a directory, excluding test files and specific directories, while respecting
     `.gitignore` rules."""
-    gitignore = get_gitignore(dir_path=dir_path)
     original_dir = os.getcwd()
     os.chdir(dir_path)
     all_paths = glob.glob("**/*", recursive=True)
-    paths = filter_paths(all_paths=all_paths, gitignore=gitignore)
+    paths = filter_paths(all_paths=all_paths)
     os.chdir(original_dir)
     return paths
 
