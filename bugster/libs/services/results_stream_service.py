@@ -32,13 +32,15 @@ class ResultsStreamService:
             return self.project_id
 
         config = load_config()
+        if not hasattr(config, "project_id") or not config.project_id:
+            raise ValueError(
+                "Project ID not found in configuration. Please run 'bugster init' to set up your project."
+            )
         return config.project_id
 
     def create_run(self, run_data: dict) -> dict:
         """Create a new test run."""
         project_id = self._get_project_id()
-        # print("create_run")
-        # return {}
         response = requests.post(
             f"{self.base_url}/api/v1/runs",
             headers={"X-API-Key": self.api_key},
@@ -49,8 +51,6 @@ class ResultsStreamService:
 
     def update_run(self, run_id: str, run_data: dict) -> dict:
         """Update an existing test run."""
-        # print("update_run")
-        # return {}
         response = requests.patch(
             f"{self.base_url}/api/v1/runs/{run_id}",
             headers={"X-API-Key": self.api_key},
@@ -61,8 +61,6 @@ class ResultsStreamService:
 
     def add_test_case(self, run_id: str, test_case_data: dict) -> dict:
         """Add a test case result to a run."""
-        # print("add_test_case")
-        # return {}
         response = requests.post(
             f"{self.base_url}/api/v1/runs/{run_id}/test-cases",
             headers={"X-API-Key": self.api_key},
@@ -73,27 +71,35 @@ class ResultsStreamService:
 
     def upload_video(self, video_path: Path) -> str:
         """Upload a video file and return the URL."""
-        # print("upload_video")
-        # return "url"
         if not video_path.exists():
+            # Consider logging this for debugging purposes
             return ""
 
-        with open(video_path, "rb") as video_file:
-            files = {"video": video_file}
-            response = requests.post(
-                f"{self.base_url}/api/v1/videos/upload",
-                headers={"X-API-Key": self.api_key},
-                files=files,
-            )
-            response.raise_for_status()
-            return response.json().get("url", "")
+        if not video_path.is_file():
+            raise ValueError(f"Path is not a file: {video_path}")
+
+        # Check file size to avoid uploading extremely large files
+        max_size = 100 * 1024 * 1024  # 100MB limit
+        if video_path.stat().st_size > max_size:
+            raise ValueError(f"Video file too large: {video_path.stat().st_size} bytes")
+
+        try:
+            with open(video_path, "rb") as video_file:
+                files = {"video": (video_path.name, video_file, "video/mp4")}
+                response = requests.post(
+                    f"{self.base_url}/api/v1/videos/upload",
+                    headers={"X-API-Key": self.api_key},
+                    files=files,
+                )
+                response.raise_for_status()
+                return response.json().get("url", "")
+        except (OSError, IOError) as e:
+            raise RuntimeError(f"Failed to read video file {video_path}: {e}") from e
 
     def update_test_case_with_video(
         self, run_id: str, test_case_id: str, video_url: str
     ) -> dict:
         """Update test case with video URL."""
-        # print("update_test_case_with_video")
-        # return {}
         response = requests.patch(
             f"{self.base_url}/api/v1/runs/{run_id}/test-cases/{test_case_id}",
             headers={"X-API-Key": self.api_key},
