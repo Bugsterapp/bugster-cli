@@ -5,7 +5,7 @@ Test for metadata consistency issue in sync command.
 import pytest
 from pathlib import Path
 from unittest.mock import MagicMock
-from datetime import datetime, UTC
+from datetime import datetime, timezone
 
 from bugster.commands.sync import sync_command
 from bugster.utils.yaml_spec import load_spec, save_spec

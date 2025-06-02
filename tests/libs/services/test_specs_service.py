@@ -4,7 +4,7 @@ Tests for SyncService.
 
 import pytest
 import responses
-from datetime import datetime, UTC
+from datetime import datetime, timezone
 from unittest.mock import MagicMock
 
 from bugster.libs.services.specs_service import SyncService
@@ -25,7 +25,7 @@ def mock_spec():
     return YamlTestcase(
         data={"name": "Test Spec", "steps": ["step1", "step2"]},
         metadata=TestCaseMetadata(
-            id="test-id", last_modified=datetime.now(UTC).isoformat()
+            id="test-id", last_modified=datetime.now(timezone.utc).isoformat()
         ),
     )
 

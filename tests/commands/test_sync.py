@@ -5,7 +5,7 @@ Tests for sync command.
 import pytest
 from pathlib import Path
 import os
-from datetime import datetime, UTC, timedelta
+from datetime import datetime, timezone, timedelta
 import responses
 from typer.testing import CliRunner
 import typer
@@ -40,7 +40,7 @@ def mock_local_spec():
     return YamlTestcase(
         data={"name": "Local Test", "steps": ["step1"]},
         metadata=TestCaseMetadata(
-            id="test-id", last_modified=datetime.now(UTC).isoformat()
+            id="test-id", last_modified=datetime.now(timezone.utc).isoformat()
         ),
     )
 
@@ -51,7 +51,9 @@ def mock_remote_spec():
         "content": {"name": "Remote Test", "steps": ["step1"]},
         "metadata": {
             "id": "remote-id",
-            "last_modified": (datetime.now(UTC) - timedelta(days=1)).isoformat(),
+            "last_modified": (
+                datetime.now(timezone.utc) - timedelta(days=1)
+            ).isoformat(),
         },
     }
 

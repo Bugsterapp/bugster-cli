@@ -2,7 +2,7 @@
 YAML Spec parser with metadata handling.
 """
 
-from datetime import datetime, UTC
+from datetime import datetime, timezone
 import uuid
 from typing import List, Dict, Any, Optional
 from pathlib import Path
@@ -20,7 +20,9 @@ class TestCaseMetadata:
     @classmethod
     def create_new(cls) -> "TestCaseMetadata":
         """Create new metadata with default values"""
-        return cls(id=str(uuid.uuid4()), last_modified=datetime.now(UTC).isoformat())
+        return cls(
+            id=str(uuid.uuid4()), last_modified=datetime.now(timezone.utc).isoformat()
+        )
 
     @classmethod
     def from_comment(cls, comment: str) -> Optional["TestCaseMetadata"]:
@@ -32,7 +34,9 @@ class TestCaseMetadata:
             meta_dict = json.loads(comment[8:].strip())
             # Ensure all required fields exist
             meta_dict.setdefault("id", str(uuid.uuid4()))
-            meta_dict.setdefault("last_modified", datetime.now(UTC).isoformat())
+            meta_dict.setdefault(
+                "last_modified", datetime.now(timezone.utc).isoformat()
+            )
 
             # Remove version if present (for backwards compatibility)
             meta_dict.pop("version", None)

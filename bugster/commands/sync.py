@@ -8,7 +8,7 @@ import typer
 from rich.console import Console
 from rich.status import Status
 import subprocess
-from datetime import datetime, UTC
+from datetime import datetime, timezone
 
 from bugster.libs.services.specs_service import SyncService
 from bugster.commands.middleware import require_api_key
@@ -125,7 +125,7 @@ def sync_specs(
                         use_local = True
                         # Update local spec's timestamp to now
                         local_spec.metadata.last_modified = datetime.now(
-                            UTC
+                            timezone.utc
                         ).isoformat()
                     else:
                         use_local = local_time > remote_time
