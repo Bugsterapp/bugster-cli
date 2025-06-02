@@ -61,7 +61,7 @@ def get_latest_version():
 
     # Get repo owner and name from GITHUB_REPO
     _, _, _, owner, repo = GITHUB_REPO.split("/")
-    api_url = f"https://api.github.com/repos/{owner}/{repo}/releases?per_page=1"
+    api_url = f"https://api.github.com/repos/{owner}/{repo}/releases/latest"
 
     try:
         # Create request with headers
@@ -73,10 +73,10 @@ def get_latest_version():
 
         # Make the request
         with urlopen(request) as response:
-            releases = json.loads(response.read())
+            release = json.loads(response.read())
 
-        if releases and len(releases) > 0:
-            tag = releases[0]["tag_name"]
+        if release:
+            tag = release["tag_name"]
             print(f"Latest version is {tag}")
             return tag
     except Exception as e:

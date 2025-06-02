@@ -2,12 +2,11 @@ import json
 import os
 
 from loguru import logger
-from bugster.analyzer.utils.errors import BugsterError
 
-from bugster.constants import BUGSTER_DIR
-from bugster.analyzer.core.app_analyzer.next_js_analyzer import NextJsAnalyzer
+from bugster.analyzer.core.app_analyzer.nextjs_analyzer import NextjsAnalyzer
 from bugster.analyzer.core.framework_detector import get_project_info
-
+from bugster.analyzer.utils.errors import BugsterError
+from bugster.constants import BUGSTER_DIR
 
 SUPPORTED_FRAMEWORKS_IDS = ["next"]
 
@@ -96,7 +95,7 @@ class AppAnalyzer:
         logger.info("Starting Next.js analysis...")
 
         try:
-            next_analyzer = NextJsAnalyzer(framework_info=self.framework_info)
+            next_analyzer = NextjsAnalyzer(framework_info=self.framework_info)
             analysis = next_analyzer.execute()
             logger.info("Next.js analysis completed successfully!")
             return analysis

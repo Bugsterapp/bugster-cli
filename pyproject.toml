@@ -3,3 +3,7 @@ select = ["E", "F", "I"]  # Enable pycodestyle, pyflakes, and import sorting
 
 [tool.ruff.lint.isort]
 known-first-party = ["src"]
+
+[tool.ruff.format]
+docstring-code-format = true
+docstring-code-line-length = 20

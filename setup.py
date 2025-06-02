@@ -1,5 +1,6 @@
-from setuptools import setup, find_packages
 import re
+
+from setuptools import find_packages, setup
 
 # Read version from bugster/__init__.py
 with open("bugster/__init__.py", "r") as f:
@@ -67,7 +68,7 @@ setup(
         "websockets==15.0.1",
         "yarl==1.20.0",
         "zipp==3.21.0",
-    
+        "yaspin==3.1.0",
     ],
     entry_points={
         "console_scripts": [

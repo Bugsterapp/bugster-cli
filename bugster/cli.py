@@ -1,13 +1,11 @@
-"""
-Command-line interface for Bugster.
-"""
+"""Command-line interface for Bugster."""
 
 import asyncio
+from typing import Optional
+
 import click
 import typer
 from rich.console import Console
-from typing import Optional
-
 
 HELP_TEXT = """
 🐛 [bold cyan]Bugster CLI[/bold cyan]
@@ -54,7 +52,10 @@ def test(
         None, "--output", help="Save test results to JSON file"
     ),
 ):
-    """[bold yellow]Run[/bold yellow] Bugster tests. If no path is provided, runs all tests in .bugster/tests."""
+    """[bold yellow]Run[/bold yellow] Bugster tests.
+
+    If no path is provided, runs all tests in .bugster/tests.
+    """
     from bugster.commands.test import test_command
 
     asyncio.run(test_command(path, headless, silent, stream_results, output))
@@ -74,13 +75,20 @@ def analyze(
         help="Force analysis even if the codebase has already been analyzed",
     ),
 ):
-    """[bold magenta]Analyze[/bold magenta] your codebase generates test specs"""
+    """[bold magenta]Analyze[/bold magenta] your codebase generates test specs."""
     from bugster.commands.analyze import analyze_command
 
     analyze_command(options={"show_logs": show_logs, "force": force})
 
 
 @app.command()
+def update():
+    """[bold magenta]Update[/bold magenta] your codebase with the latest changes."""
+    from bugster.commands.update import update_command
+
+    update_command()
+
+
 def sync(
     branch: Optional[str] = typer.Option(
         None, help="Branch to sync with (defaults to current git branch or 'main')"

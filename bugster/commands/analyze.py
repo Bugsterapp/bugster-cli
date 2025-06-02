@@ -1,4 +1,5 @@
 from rich.console import Console
+from yaspin import yaspin
 
 from bugster.analyzer import analyze_codebase
 
@@ -14,7 +15,10 @@ def analyze_command(options: dict = {}):
     console.print("🔍 Running codebase analysis...")
     analyze_codebase(options=options)
     console.print("✅ Analysis completed!")
-    console.print("🚧 Running test cases generation...")
-    test_cases_dir_path = TestCasesService().generate_test_cases()
-    console.print("🎉 Test cases generation completed!")
+
+    with yaspin(text=" Generating test cases...", color="yellow") as spinner:
+        test_cases_dir_path = TestCasesService().generate_test_cases()
+        spinner.text = "Test cases generation completed!"
+        spinner.ok("🎉")
+
     console.print(f"💾 Test cases saved to directory '{test_cases_dir_path}'")

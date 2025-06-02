@@ -1,10 +1,13 @@
 repos:
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    # Ruff version.
     rev: v0.11.9
     hooks:
-      # Run the linter.
       - id: ruff
         args: [--fix, --exit-zero]
-      # Run the formatter.
       - id: ruff-format
+  - repo: https://github.com/myint/docformatter
+    rev: v1.7.6
+    hooks:
+      - id: docformatter
+        args: [--in-place, --wrap-summaries=115, --wrap-descriptions=120]
+        stages: [pre-commit]

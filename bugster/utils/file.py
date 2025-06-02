@@ -1,24 +1,23 @@
-"""
-File utility functions for Bugster.
-"""
+"""File utility functions for Bugster."""
 
-from pathlib import Path
-from typing import Optional, List
-import yaml
-import typer
-from rich.console import Console
 import json
 import tempfile
+from pathlib import Path
+from typing import List, Optional
+
+import typer
+import yaml
+from rich.console import Console
 
 from bugster.constants import CONFIG_PATH, TESTS_DIR
 from bugster.types import Config
-from bugster.utils.yaml_spec import load_spec, YamlTestcase
+from bugster.utils.yaml_spec import load_spec
 
 console = Console()
 
 
 def load_config() -> Config:
-    """Load configuration from config.yaml"""
+    """Load configuration from config.yaml."""
     if not CONFIG_PATH.exists():
         console.print(
             "[red]Error: Configuration file not found. Please run 'bugster init' first.[/red]"
@@ -40,7 +39,7 @@ def load_test_files(test_path: Optional[Path] = None) -> List[dict]:
         raise typer.Exit(1)
 
     def process_yaml_file(file_path: Path) -> dict:
-        """Process a single YAML file and return its specs"""
+        """Process a single YAML file and return its specs."""
         try:
             test_cases = load_spec(file_path)
             # Convert specs to the expected format
@@ -76,7 +75,10 @@ def load_test_files(test_path: Optional[Path] = None) -> List[dict]:
 
 
 def get_mcp_config_path(mcp_config: dict, version: str) -> str:
-    """Get the MCP config file path. Creates a temporary config file with browser settings."""
+    """Get the MCP config file path.
+
+    Creates a temporary config file with browser settings.
+    """
 
     # Create a temporary file with a specific name
     temp_dir = tempfile.gettempdir()
