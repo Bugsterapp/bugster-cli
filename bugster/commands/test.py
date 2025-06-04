@@ -252,6 +252,7 @@ async def execute_test(test: Test, config: Config, **kwargs) -> NamedTestResult:
         mcp_args = [
             "@playwright/mcp@latest",
             "--isolated",
+            "--no-sandbox",
             "--config",
             playwright_config,
         ]
