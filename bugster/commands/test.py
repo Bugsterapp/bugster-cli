@@ -372,6 +372,7 @@ async def test_command(
     stream_results: Optional[bool] = False,
     output: Optional[str] = None,
     run_id: Optional[str] = None,
+    base_url: Optional[str] = None,
 ):
     """Run Bugster tests."""
     total_start_time = time.time()
@@ -379,6 +380,10 @@ async def test_command(
     try:
         # Load configuration and test files
         config = load_config()
+        if base_url:
+            # Override the base URL in the config
+            # Used for CI/CD pipelines
+            config.base_url = base_url
         path = Path(test_path) if test_path else None
         test_files = load_test_files(path)
 
