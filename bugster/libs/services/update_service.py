@@ -9,7 +9,7 @@ from bugster.libs.mixins import (
 )
 from bugster.libs.services.test_cases_service import TestCasesService
 from bugster.libs.utils.enums import GitCommand
-from bugster.libs.utils.git import GitCommandRunner, parse_diff_status
+from bugster.libs.utils.git import parse_diff_status, run_git_command
 from bugster.libs.utils.nextjs.import_tree_generator import (
     generate_and_save_import_tree,
 )
@@ -46,11 +46,7 @@ class UpdateService(ABC):
 
     def _get_mapped_changes(self) -> dict:
         """Get the mapped changes of the user's repository."""
-        with GitCommandRunner(
-            cmd_key=GitCommand.DIFF_STATUS_PORCELAIN
-        ) as git_command_runner:
-            diff_status = git_command_runner.run()
-
+        diff_status = run_git_command(cmd_key=GitCommand.DIFF_STATUS_PORCELAIN)
         return parse_diff_status(diff_status=diff_status)
 
     def _get_import_tree(self) -> dict:
@@ -107,7 +103,7 @@ class DetectAffectedSpecsService(UpdateService, DetectAffectedSpecsMixin):
 
     def run(self):
         """Run the detect affected specs service."""
-        self.detect()
+        return self.detect()
 
 
 def get_update_service(update_only: bool, suggest_only: bool, delete_only: bool):

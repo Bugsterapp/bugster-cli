@@ -11,7 +11,8 @@ release version type:
     if [ "{{type}}" = "stable" ]; then
         TAG="v{{version}}"
     else
-        TAG="v{{version}}-beta"
+        TIMESTAMP=$(date +"%d%m%Y-%H%M")
+        TAG="v{{version}}-beta-${TIMESTAMP}"
     fi
     echo "🚀 Releasing... $TAG"
     git tag -a "$TAG" -m "Bugster CLI $TAG" && git push origin --tags

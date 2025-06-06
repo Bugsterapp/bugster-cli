@@ -19,6 +19,7 @@ class GitCommand(list, Enum):
     - RESET: Remove all intent-to-add files.
     """
 
+    CURRENT_BRANCH = ["git", "rev-parse", "--abbrev-ref", "HEAD"]
     DIFF_STATUS_PORCELAIN = [
         "git",
         "status",
@@ -41,5 +42,15 @@ class GitCommand(list, Enum):
         "*.jsx",
     ]
     DIFF_CHANGES = ["git", "diff", "--", "*.tsx", "*.ts", "*.js", "*.jsx"]
+    DIFF_BRANCH_HEAD = [
+        "git",
+        "diff",
+        "{target_branch}..HEAD",
+        "--",
+        "*.tsx",
+        "*.ts",
+        "*.js",
+        "*.jsx",
+    ]
     DIFF_CACHED = ["git", "diff", "--cached", "--", "*.tsx", "*.ts", "*.js", "*.jsx"]
     RESET = ["git", "reset", "--quiet"]

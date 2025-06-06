@@ -1,21 +1,22 @@
-from pathlib import Path
+import json
+import time
 import uuid
+from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
+from typing import List, Optional
+
 import typer
 from rich.console import Console
-from rich.table import Table
-from rich.style import Style
 from rich.status import Status
-from typing import Optional, List
-import time
-import json
-from concurrent.futures import ThreadPoolExecutor
+from rich.style import Style
+from rich.table import Table
 
-from bugster.clients.ws_client import WebSocketClient
 from bugster.clients.mcp_client import MCPStdioClient
+from bugster.clients.ws_client import WebSocketClient
 from bugster.commands.middleware import require_api_key
 from bugster.commands.sync import get_current_branch
-from bugster.utils.file import load_config, load_test_files, get_mcp_config_path
 from bugster.libs.services.results_stream_service import ResultsStreamService
+from bugster.libs.services.update_service import DetectAffectedSpecsService
 from bugster.types import (
     Config,
     NamedTestResult,
@@ -25,6 +26,7 @@ from bugster.types import (
     WebSocketStepRequestMessage,
     WebSocketStepResultMessage,
 )
+from bugster.utils.file import get_mcp_config_path, load_config, load_test_files
 
 console = Console()
 
@@ -374,6 +376,7 @@ async def test_command(
     output: Optional[str] = None,
     run_id: Optional[str] = None,
     base_url: Optional[str] = None,
+    only_affected: Optional[bool] = None,
 ):
     """Run Bugster tests."""
     total_start_time = time.time()
@@ -381,12 +384,18 @@ async def test_command(
     try:
         # Load configuration and test files
         config = load_config()
+
         if base_url:
             # Override the base URL in the config
             # Used for CI/CD pipelines
             config.base_url = base_url
+
         path = Path(test_path) if test_path else None
-        test_files = load_test_files(path)
+
+        if only_affected:
+            test_files = DetectAffectedSpecsService().run()
+        else:
+            test_files = load_test_files(path)
 
         if not test_files:
             console.print("[yellow]No test files found[/yellow]")
