@@ -21,7 +21,7 @@ class GitInfo:
 def get_git_info() -> GitInfo:
     """Get Git repository information."""
     try:
-        repo = Repo(".")
+        repo = Repo(search_parent_directories=True)
         branch = repo.active_branch.name
         commit = repo.head.commit.hexsha
         return GitInfo(branch=branch, commit=commit).to_dict()
