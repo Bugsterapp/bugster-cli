@@ -227,7 +227,7 @@ jobs:
         shell: cmd
         run: |
           curl https://raw.githubusercontent.com/Bugsterapp/bugster-cli/main/scripts/install.bat -o install.bat
-          install.bat -v v${{ needs.validate.outputs.version }} -y
+          call install.bat -v v${{ needs.validate.outputs.version }} -y
 
       - name: Verify installation
         run: |
