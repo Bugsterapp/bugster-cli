@@ -190,7 +190,7 @@ jobs:
 
             ### Windows
             ```cmd
-            curl https://raw.githubusercontent.com/Bugsterapp/bugster-cli/main/scripts/install.bat -o install.bat && install.bat -v ${{ needs.validate.outputs.version }} -y
+            curl https://raw.githubusercontent.com/Bugsterapp/bugster-cli/main/scripts/install.bat -o install.bat && .\install.bat -v ${{ needs.validate.outputs.version }} -y
             ```
 
             ## Manual Installation
@@ -205,28 +205,23 @@ jobs:
       matrix:
         include:
           - os: ubuntu-latest
-            shell: bash
             install_command: |
               curl -fsSL https://raw.githubusercontent.com/Bugsterapp/bugster-cli/main/scripts/install.sh | bash -s -- -v v${{ needs.validate.outputs.version }} -y
               echo "$HOME/.local/bin" >> $GITHUB_PATH
           - os: macos-latest
-            shell: bash
             install_command: |
               curl -fsSL https://raw.githubusercontent.com/Bugsterapp/bugster-cli/main/scripts/install.sh | bash -s -- -v v${{ needs.validate.outputs.version }} -y
               echo "$HOME/.local/bin" >> $GITHUB_PATH
           - os: windows-latest
-            shell: pwsh
             install_command: |
-              curl https://raw.githubusercontent.com/Bugsterapp/bugster-cli/main/scripts/install.bat -o install.bat && install.bat -v v${{ needs.validate.outputs.version }} -y
+              curl https://raw.githubusercontent.com/Bugsterapp/bugster-cli/main/scripts/install.bat -o install.bat && .\install.bat -v v${{ needs.validate.outputs.version }} -y
               echo "$env:USERPROFILE\.local\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
 
     steps:
       - name: Install Bugster CLI
-        shell: ${{ matrix.shell }}
         run: ${{ matrix.install_command }}
 
       - name: Verify installation
-        shell: ${{ matrix.shell }}
         run: |
           # Wait a moment for PATH to be updated
           sleep 2
@@ -247,7 +242,6 @@ jobs:
           fi
 
       - name: Test basic functionality
-        shell: ${{ matrix.shell }}
         run: |
           # Test that the CLI responds to help command
           bugster --help
