@@ -18,10 +18,7 @@ import shutil
 import json
 import ssl
 import re
-import site
-import venv
-from pathlib import Path
-from urllib.request import urlretrieve, Request, urlopen
+from urllib.request import Request, urlopen
 from urllib.error import URLError
 
 # Disable SSL certificate verification
@@ -41,21 +38,26 @@ DEFAULT_VERSION = "v0.1.0"
 REQUIRED_PYTHON_VERSION = (3, 12)
 MINIMUM_PYTHON_VERSION = (3, 10)
 
+
 def print_step(message):
     """Print a step message."""
     print(f"\n{BLUE}=> {message}{RESET}")
+
 
 def print_error(message):
     """Print an error message."""
     print(f"{RED}{message}{RESET}")
 
+
 def print_success(message):
     """Print a success message."""
     print(f"{GREEN}{message}{RESET}")
 
+
 def print_warning(message):
     """Print a warning message."""
     print(f"{YELLOW}{message}{RESET}")
+
 
 def run_command(command, check=True, shell=True):
     """Run a shell command and print its output."""
@@ -74,15 +76,18 @@ def run_command(command, check=True, shell=True):
         print_error(f"Error output: {e.stderr}")
         return None
 
+
 def is_development_version(version):
     """Check if the version is a development version (beta, rc, alpha)."""
     return bool(re.search(r"-beta|-rc|-alpha", version))
+
 
 def get_api_endpoint(version):
     """Get the API endpoint based on version."""
     if is_development_version(version):
         return "dev.bugster.api"
     return "api.bugster.app"
+
 
 def validate_version(version):
     """Validate version format."""
@@ -97,6 +102,7 @@ def validate_version(version):
         print("  - latest")
         return False
     return True
+
 
 def get_latest_version():
     """Get the latest version from GitHub."""
@@ -118,12 +124,15 @@ def get_latest_version():
             return tag
     except URLError as e:
         print_error(f"Error fetching latest version: {e}")
-        print_warning("Network connection error. Please check your internet connection.")
+        print_warning(
+            "Network connection error. Please check your internet connection."
+        )
     except Exception as e:
         print_error(f"Error fetching latest version: {e}")
 
     print_warning(f"Using default version: {DEFAULT_VERSION}")
     return DEFAULT_VERSION
+
 
 def check_version_exists(version):
     """Check if the specified version exists in GitHub releases."""
@@ -133,11 +142,12 @@ def check_version_exists(version):
             "X-GitHub-Api-Version": "2022-11-28",
         }
         request = Request(f"{GITHUB_API}/releases/tags/{version}", headers=headers)
-        
+
         with urlopen(request) as response:
             return response.getcode() == 200
     except URLError:
         return False
+
 
 def download_with_progress(url, destination):
     """Download a file with progress indicator."""
@@ -154,7 +164,7 @@ def download_with_progress(url, destination):
                         break
                     current_size += len(block)
                     f.write(block)
-                    
+
                     if total_size > 0:
                         progress = current_size / total_size * 100
                         print(f"\rDownloading... {progress:.1f}%", end="", flush=True)
@@ -165,46 +175,59 @@ def download_with_progress(url, destination):
         print_error(f"\nError during download: {e}")
         return False
 
+
 def find_python_executable():
     """Find the best available Python executable."""
     system = platform.system()
     paths = []
-    
+
     if system == "Windows":
         # Windows-specific paths
         local_app_data = os.environ.get("LOCALAPPDATA", "")
         program_files = os.environ.get("PROGRAMFILES", "")
         program_files_x86 = os.environ.get("PROGRAMFILES(x86)", "")
-        paths.extend([
-            os.path.join(local_app_data, "Programs", "Python", "Python312", "python.exe"),
-            os.path.join(program_files, "Python312", "python.exe"),
-            os.path.join(program_files_x86, "Python312", "python.exe"),
-            os.path.join(local_app_data, "Microsoft", "WindowsApps", "python3.12.exe"),
-        ])
+        paths.extend(
+            [
+                os.path.join(
+                    local_app_data, "Programs", "Python", "Python312", "python.exe"
+                ),
+                os.path.join(program_files, "Python312", "python.exe"),
+                os.path.join(program_files_x86, "Python312", "python.exe"),
+                os.path.join(
+                    local_app_data, "Microsoft", "WindowsApps", "python3.12.exe"
+                ),
+            ]
+        )
     else:
         # Unix-like systems (macOS/Linux)
-        paths.extend([
-            "/usr/local/bin/python3.12",
-            "/usr/bin/python3.12",
-            "/opt/homebrew/bin/python3.12",
-        ])
-    
+        paths.extend(
+            [
+                "/usr/local/bin/python3.12",
+                "/usr/bin/python3.12",
+                "/opt/homebrew/bin/python3.12",
+            ]
+        )
+
     # Add common paths
-    paths.extend([
-        "python3.12",
-        "python3.11",
-        "python3.10",
-        "python3",
-        "python",
-    ])
-    
+    paths.extend(
+        [
+            "python3.12",
+            "python3.11",
+            "python3.10",
+            "python3",
+            "python",
+        ]
+    )
+
     for path in paths:
         try:
             if system == "Windows" and os.path.exists(path):
                 result = run_command(f'"{path}" --version', check=False)
             else:
-                result = run_command(f"command -v {path} && {path} --version", check=False)
-            
+                result = run_command(
+                    f"command -v {path} && {path} --version", check=False
+                )
+
             if result and result.returncode == 0:
                 version_str = result.stdout.strip()
                 if "Python" in version_str:
@@ -213,30 +236,9 @@ def find_python_executable():
                         return path, version
         except Exception:
             continue
-    
+
     return None, None
 
-def create_virtual_environment(python_path):
-    """Create a virtual environment for Bugster CLI."""
-    venv_path = os.path.expanduser("~/.bugster/venv")
-    print_step(f"Creating virtual environment at {venv_path}")
-    
-    try:
-        venv.create(venv_path, with_pip=True, clear=True)
-        
-        # Get the Python executable in the virtual environment
-        if platform.system() == "Windows":
-            venv_python = os.path.join(venv_path, "Scripts", "python.exe")
-        else:
-            venv_python = os.path.join(venv_path, "bin", "python")
-        
-        # Upgrade pip in the virtual environment
-        run_command(f'"{venv_python}" -m pip install --upgrade pip')
-        
-        return venv_path, venv_python
-    except Exception as e:
-        print_error(f"Error creating virtual environment: {e}")
-        return None, None
 
 def download_and_extract(version):
     """Download and extract the appropriate asset for the current platform."""
@@ -295,25 +297,28 @@ def download_and_extract(version):
 
     return exe_path, temp_dir
 
+
 def install_executable(executable_path):
     """Install the Bugster CLI executable."""
     system = platform.system()
-    
+
     # Determine installation directory
     if system == "Windows":
-        install_dir = os.path.join(os.environ.get("LOCALAPPDATA", ""), "Programs", "bugster")
+        install_dir = os.path.join(
+            os.environ.get("LOCALAPPDATA", ""), "Programs", "bugster"
+        )
     else:
         install_dir = os.path.expanduser("~/.local/bin")
-    
+
     # Create installation directory if it doesn't exist
     os.makedirs(install_dir, exist_ok=True)
-    
+
     # Determine target path
     if system == "Windows":
         target_path = os.path.join(install_dir, "bugster.exe")
     else:
         target_path = os.path.join(install_dir, "bugster")
-    
+
     # Copy executable to installation directory
     try:
         shutil.copy2(executable_path, target_path)
@@ -325,10 +330,11 @@ def install_executable(executable_path):
         print_error(f"Error installing executable: {e}")
         return None
 
+
 def test_installation(executable_path, version):
     """Test the Bugster CLI installation."""
     print_step("Testing installation...")
-    
+
     try:
         result = run_command(f'"{executable_path}" --version')
         if result and result.returncode == 0:
@@ -337,8 +343,9 @@ def test_installation(executable_path, version):
             return True
     except Exception as e:
         print_error(f"Error testing installation: {e}")
-    
+
     return False
+
 
 def cleanup(temp_dir):
     """Clean up temporary files."""
@@ -347,29 +354,39 @@ def cleanup(temp_dir):
     except Exception:
         pass
 
+
 def ensure_python312():
     """Ensure Python 3.12 is available and set as default."""
     current_version = sys.version_info[:2]
     if current_version >= REQUIRED_PYTHON_VERSION:
         return True, sys.executable
-    
+
     # Find best available Python
     python_path, python_version = find_python_executable()
-    
+
     if python_path and python_version >= REQUIRED_PYTHON_VERSION:
         return True, python_path
     elif python_version and python_version >= MINIMUM_PYTHON_VERSION:
-        print_warning(f"Using Python {'.'.join(map(str, python_version))} (Python {'.'.join(map(str, REQUIRED_PYTHON_VERSION))} recommended)")
+        print_warning(
+            f"Using Python {'.'.join(map(str, python_version))} (Python {'.'.join(map(str, REQUIRED_PYTHON_VERSION))} recommended)"
+        )
         return True, python_path
-    
-    print_error(f"Python {'.'.join(map(str, MINIMUM_PYTHON_VERSION))} or higher is required")
-    print_error("Please install Python using your system's package manager or download from python.org")
+
+    print_error(
+        f"Python {'.'.join(map(str, MINIMUM_PYTHON_VERSION))} or higher is required"
+    )
+    print_error(
+        "Please install Python using your system's package manager or download from python.org"
+    )
     return False, None
+
 
 def main():
     """Main installation function."""
     parser = argparse.ArgumentParser(description="Bugster CLI installer")
-    parser.add_argument("-v", "--version", default="latest", help="Version to install (e.g., v0.2.8)")
+    parser.add_argument(
+        "-v", "--version", default="latest", help="Version to install (e.g., v0.2.8)"
+    )
     args = parser.parse_args()
 
     # Validate version format
@@ -389,11 +406,6 @@ def main():
     # Check if version exists
     if not check_version_exists(version):
         print_error(f"Version {version} not found")
-        sys.exit(1)
-
-    # Create virtual environment
-    venv_path, venv_python = create_virtual_environment(python_path)
-    if not venv_path or not venv_python:
         sys.exit(1)
 
     # Download and extract
@@ -416,13 +428,14 @@ def main():
             print(f"  {os.path.dirname(installed_path)}")
         else:
             print("  ~/.local/bin")
-        
+
         print("\nTo start using Bugster CLI, run:")
         print("  bugster --help")
 
     finally:
         # Clean up
         cleanup(temp_dir)
+
 
 if __name__ == "__main__":
     main()
