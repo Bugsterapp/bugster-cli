@@ -219,6 +219,12 @@ jobs:
 
     steps:
       - name: Install Bugster CLI
+        if: matrix.os != 'windows-latest'
+        run: ${{ matrix.install_command }}
+
+      - name: Install Bugster CLI on Windows
+        if: matrix.os == 'windows-latest'
+        shell: cmd
         run: ${{ matrix.install_command }}
 
       - name: Verify installation
