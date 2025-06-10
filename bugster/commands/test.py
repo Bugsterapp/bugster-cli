@@ -1,3 +1,4 @@
+import asyncio
 import json
 import time
 import uuid
@@ -6,6 +7,7 @@ from pathlib import Path
 from typing import List, Optional
 
 import typer
+from loguru import logger
 from rich.console import Console
 from rich.status import Status
 from rich.style import Style
@@ -275,11 +277,20 @@ async def execute_test(test: Test, config: Config, **kwargs) -> NamedTestResult:
         with Status(
             f"[blue]Running test: {test.name}[/blue]", spinner="line"
         ) as status:
+            last_step_request = None
+            timeout_retry_count = 0
+            unknown_retry_count = 0
+            max_retries = 2
+
             while True:
                 message = await ws_client.receive()
 
                 if message.get("action") == "step_request":
                     step_request = WebSocketStepRequestMessage(**message)
+                    last_step_request = step_request
+                    timeout_retry_count = 0  # Reset retry count for new step
+                    unknown_retry_count = 0  # Reset retry count for new step
+
                     await handle_step_request(
                         step_request, mcp_client, ws_client, silent
                     )
@@ -294,10 +305,61 @@ async def execute_test(test: Test, config: Config, **kwargs) -> NamedTestResult:
                         complete_message, test, 0
                     )  # time is added later
                     return result
+                elif message.get("message") == "Endpoint request timed out":
+                    if last_step_request and timeout_retry_count < max_retries:
+                        timeout_retry_count += 1
+                        logger.warning(
+                            f"Timeout occurred, retrying step ({timeout_retry_count}/{max_retries}): {last_step_request.message}"
+                        )
+                        if not silent:
+                            status.update(
+                                f"[yellow]Running test: {test.name} - Retrying ({timeout_retry_count}/{max_retries}): {last_step_request.message}[/yellow]"
+                            )
+
+                        await handle_step_request(
+                            last_step_request, mcp_client, ws_client, silent
+                        )
+                    else:
+                        logger.error(
+                            f"Max retries ({max_retries}) exceeded for step: {last_step_request.message if last_step_request else 'Unknown step'}"
+                        )
+                        if not silent:
+                            console.print(
+                                f"[red]Max retries exceeded. Please try again later[/red]"
+                            )
+                        raise typer.Exit(1)
                 else:
-                    if not silent:
-                        console.print(f"[red]Internal error: {message}[/red]")
-                    raise typer.Exit(1)
+                    if last_step_request and unknown_retry_count < max_retries:
+                        unknown_retry_count += 1
+                        logger.warning(
+                            f"Unknown message received, waiting 30s and retrying step ({unknown_retry_count}/{max_retries}): {last_step_request.message}"
+                        )
+                        logger.debug(f"Unknown message content: {message}")
+                        if not silent:
+                            status.update(
+                                f"[yellow]Running test: {test.name} - Waiting 30s, then retrying ({unknown_retry_count}/{max_retries}): {last_step_request.message}[/yellow]"
+                            )
+
+                        await asyncio.sleep(30)
+
+                        if not silent:
+                            status.update(
+                                f"[blue]Running test: {test.name} - Retrying ({unknown_retry_count}/{max_retries}): {last_step_request.message}[/blue]"
+                            )
+
+                        await handle_step_request(
+                            last_step_request, mcp_client, ws_client, silent
+                        )
+                    else:
+                        logger.error(
+                            f"Max retries ({max_retries}) exceeded for unknown message. Last step: {last_step_request.message if last_step_request else 'Unknown step'}"
+                        )
+                        logger.error(f"Final unknown message: {message}")
+                        if not silent:
+                            console.print(
+                                f"[red]Internal error. Please try again later[/red]"
+                            )
+                        raise typer.Exit(1)
 
     finally:
         await ws_client.close()
