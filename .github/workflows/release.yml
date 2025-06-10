@@ -25,7 +25,7 @@ jobs:
         run: |
           TAG=${GITHUB_REF#refs/tags/v}
           echo "Processing tag: $TAG"
-          
+
           # Validate tag format
           if [[ "$TAG" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-((alpha|beta)\.[0-9]+))?$ ]]; then
             echo "IS_VALID=true" >> $GITHUB_OUTPUT
@@ -195,3 +195,55 @@ jobs:
 
             ## Manual Installation
             Download the appropriate zip file for your platform and extract the binary to a location in your PATH.
+
+  test:
+    needs: [release]
+    name: Test Installation on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            install_command: |
+              curl -fsSL https://raw.githubusercontent.com/bugster/bugster-cli/main/scripts/install.sh | bash
+              echo "$HOME/.local/bin" >> $GITHUB_PATH
+          - os: macos-latest
+            install_command: |
+              curl -fsSL https://raw.githubusercontent.com/bugster/bugster-cli/main/scripts/install.sh | bash
+              echo "$HOME/.local/bin" >> $GITHUB_PATH
+          - os: windows-latest
+            install_command: |
+              iwr https://raw.githubusercontent.com/bugster/bugster-cli/main/scripts/install.bat -useb | iex
+              echo "$env:USERPROFILE\.local\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+
+    steps:
+      - name: Install Bugster CLI
+        shell: bash
+        run: ${{ matrix.install_command }}
+
+      - name: Verify installation
+        shell: bash
+        run: |
+          # Wait a moment for PATH to be updated
+          sleep 2
+
+          # Try to run bugster --version
+          if command -v bugster >/dev/null 2>&1; then
+            echo "✅ bugster command found in PATH"
+            bugster --version
+          else
+            echo "❌ bugster command not found in PATH"
+            echo "PATH contents:"
+            echo $PATH
+            
+            # Try to find bugster in common locations
+            echo "Searching for bugster binary..."
+            find $HOME -name "bugster*" -type f 2>/dev/null || true
+            exit 1
+          fi
+
+      - name: Test basic functionality
+        shell: bash
+        run: |
+          # Test that the CLI responds to help command
+          bugster --help
