@@ -185,12 +185,12 @@ jobs:
             ## Installation
             ### Linux/macOS
             ```bash
-            curl -fsSL https://raw.githubusercontent.com/Bugsterapp/bugster-cli/main/scripts/install.sh | bash
+            curl -fsSL https://raw.githubusercontent.com/Bugsterapp/bugster-cli/main/scripts/install.sh | bash -s -- -v ${{ needs.validate.outputs.version }} -y
             ```
 
             ### Windows
-            ```powershell
-            iwr https://raw.githubusercontent.com/Bugsterapp/bugster-cli/main/scripts/install.bat -useb | iex
+            ```cmd
+            curl https://raw.githubusercontent.com/Bugsterapp/bugster-cli/main/scripts/install.bat -o install.bat && install.bat -v ${{ needs.validate.outputs.version }} -y
             ```
 
             ## Manual Installation
@@ -206,15 +206,15 @@ jobs:
         include:
           - os: ubuntu-latest
             install_command: |
-              curl -fsSL https://raw.githubusercontent.com/Bugsterapp/bugster-cli/main/scripts/install.sh | bash
+              curl -fsSL https://raw.githubusercontent.com/Bugsterapp/bugster-cli/main/scripts/install.sh | bash -s -- -v ${{ needs.validate.outputs.version }} -y
               echo "$HOME/.local/bin" >> $GITHUB_PATH
           - os: macos-latest
             install_command: |
-              curl -fsSL https://raw.githubusercontent.com/Bugsterapp/bugster-cli/main/scripts/install.sh | bash
+              curl -fsSL https://raw.githubusercontent.com/Bugsterapp/bugster-cli/main/scripts/install.sh | bash -s -- -v ${{ needs.validate.outputs.version }} -y
               echo "$HOME/.local/bin" >> $GITHUB_PATH
           - os: windows-latest
             install_command: |
-              iwr https://raw.githubusercontent.com/Bugsterapp/bugster-cli/main/scripts/install.bat -useb | iex
+              curl https://raw.githubusercontent.com/Bugsterapp/bugster-cli/main/scripts/install.bat -o install.bat && install.bat -v ${{ needs.validate.outputs.version }} -y
               echo "$env:USERPROFILE\.local\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
 
     steps:
