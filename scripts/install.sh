@@ -30,6 +30,11 @@ show_help() {
     cat << EOF
 Bugster CLI Installer
 
+This installer will automatically install:
+- Python 3.10+ (installs Python 3.12 if needed)
+- Node.js 18+ (installs Node.js 18 if needed)
+- Bugster CLI
+
 Usage: 
     ./install.sh [options]
     curl -sSL https://raw.githubusercontent.com/Bugsterapp/bugster-cli/main/scripts/install.sh | bash -s -- [options]
@@ -98,6 +103,18 @@ find_best_python() {
     return 1
 }
 
+# Function to check Node.js version
+check_node_version() {
+    if command -v node &>/dev/null; then
+        local node_version=$(node --version | grep -oE '[0-9]+\.[0-9]+\.[0-9]+')
+        local major_version=$(echo "$node_version" | cut -d. -f1)
+        if [[ "$major_version" -ge 18 ]]; then
+            return 0
+        fi
+    fi
+    return 1
+}
+
 # Function to update shell config
 update_shell_config() {
     local config_file="$1"
@@ -125,8 +142,12 @@ EOF
         # Add Homebrew paths based on architecture
         if [[ "$arch_type" == "arm64" ]]; then
             echo 'export PATH="/opt/homebrew/bin:$PATH"' >> "$config_file"
+            # Add Node.js 18 path for ARM64 Macs
+            echo 'export PATH="/opt/homebrew/opt/node@18/bin:$PATH"' >> "$config_file"
         else
             echo 'export PATH="/usr/local/bin:$PATH"' >> "$config_file"
+            # Add Node.js 18 path for Intel Macs
+            echo 'export PATH="/usr/local/opt/node@18/bin:$PATH"' >> "$config_file"
         fi
     fi
     
@@ -268,6 +289,91 @@ install_python_linux() {
     fi
 }
 
+# Function to install Node.js on macOS
+install_node_macos() {
+    print_step "Installing Node.js 18 on macOS..."
+    
+    # Check if Homebrew is installed
+    if ! command -v brew &>/dev/null; then
+        print_step "Installing Homebrew first..."
+        /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+        
+        # Add Homebrew to PATH temporarily
+        local arch_type=$(uname -m)
+        if [[ "$arch_type" == "arm64" ]]; then
+            eval "$(/opt/homebrew/bin/brew shellenv)"
+        else
+            eval "$(/usr/local/bin/brew shellenv)"
+        fi
+    fi
+    
+    print_step "Installing Node.js 18 via Homebrew..."
+    brew install node@18
+    
+    # Link Node.js 18
+    brew link --force node@18
+    
+    # Verify Node.js installation
+    if command -v node &>/dev/null && check_node_version; then
+        print_success "✅ Node.js 18 installed successfully!"
+        return 0
+    else
+        print_error "❌ Node.js 18 installation failed"
+        return 1
+    fi
+}
+
+# Function to install Node.js on Linux
+install_node_linux() {
+    print_step "Installing Node.js 18 on Linux..."
+    
+    local install_cmd=""
+    local pkg_manager=""
+    
+    # Detect package manager and prepare installation command
+    if command -v apt-get &>/dev/null; then
+        pkg_manager="apt"
+        print_step "Setting up NodeSource repository for Debian/Ubuntu..."
+        curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
+        install_cmd="sudo apt-get install -y nodejs"
+    elif command -v dnf &>/dev/null; then
+        pkg_manager="dnf"
+        print_step "Setting up NodeSource repository for RHEL/Fedora..."
+        curl -fsSL https://rpm.nodesource.com/setup_18.x | sudo bash -
+        install_cmd="sudo dnf install -y nodejs npm"
+    elif command -v yum &>/dev/null; then
+        pkg_manager="yum"
+        print_step "Setting up NodeSource repository for CentOS/RHEL..."
+        curl -fsSL https://rpm.nodesource.com/setup_18.x | sudo bash -
+        install_cmd="sudo yum install -y nodejs npm"
+    elif command -v pacman &>/dev/null; then
+        pkg_manager="pacman"
+        print_step "Installing Node.js via pacman (Arch Linux)..."
+        install_cmd="sudo pacman -Sy --noconfirm nodejs npm"
+    elif command -v zypper &>/dev/null; then
+        pkg_manager="zypper"
+        print_step "Installing Node.js via zypper (openSUSE)..."
+        install_cmd="sudo zypper install -y nodejs18 npm18"
+    else
+        print_error "❌ Unsupported package manager. Please install Node.js 18 manually."
+        print_warning "Visit https://nodejs.org/en/download/ for manual installation instructions."
+        return 1
+    fi
+    
+    print_step "Using $pkg_manager to install Node.js 18..."
+    eval "$install_cmd"
+    
+    # Verify Node.js installation
+    if command -v node &>/dev/null && check_node_version; then
+        print_success "✅ Node.js 18 installed successfully!"
+        return 0
+    else
+        print_error "❌ Node.js 18 installation failed"
+        print_warning "Please install Node.js 18 manually from https://nodejs.org/"
+        return 1
+    fi
+}
+
 # Check for Python version and install if needed
 check_python_version() {
     local version=$1
@@ -339,9 +445,9 @@ else
 fi
 
 if [[ "$VERSION" == "latest" ]]; then
-    curl -sSL https://raw.githubusercontent.com/Bugsterapp/bugster-cli/main/scripts/install.py | "$PYTHON_PATH"
+    curl -sSL https://raw.githubusercontent.com/Bugsterapp/bugster-cli/giovaborgogno/DEV-33/scripts/install.py | "$PYTHON_PATH"
 else
-    curl -sSL https://raw.githubusercontent.com/Bugsterapp/bugster-cli/main/scripts/install.py | "$PYTHON_PATH" - -v "$VERSION"
+    curl -sSL https://raw.githubusercontent.com/Bugsterapp/bugster-cli/giovaborgogno/DEV-33/scripts/install.py | "$PYTHON_PATH" - -v "$VERSION"
 fi
 
 exit_code=$?
