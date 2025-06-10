@@ -1,3 +1,8 @@
+import uuid
+from datetime import datetime, timezone
+from pathlib import PosixPath
+
+from loguru import logger
 from rich.console import Console
 from rich.status import Status
 from rich.text import Text
@@ -12,25 +17,51 @@ from bugster.libs.utils.nextjs.pages_finder import (
 console = Console()
 
 
+def parse_spec_page_with_file_path(data, spec_path):
+    """Parser for spec page with file path."""
+    return {
+        "file": PosixPath(spec_path),
+        "content": [
+            {
+                **data,
+                "metadata": {
+                    "id": str(uuid.uuid4()),
+                    "last_modified": datetime.now(timezone.utc).isoformat(),
+                },
+            }
+        ],
+    }
+
+
+def format_diff_branch_head_command():
+    """Format the diff branch head command.
+
+    NOTE: At the moment, we only support diffing against the main branch. We will support diffing against any branch the user wants in the future.
+    """
+    target_branch = "origin/main"
+    return (
+        " ".join(GitCommand.DIFF_BRANCH_AGAINST_TARGET)
+        .format(target_branch=target_branch)
+        .split(" ")
+    )
+
+
 class DetectAffectedSpecsMixin:
     """Detect affected specs mixin."""
 
     def detect(self, *args, **kwargs):
         """Detect affected specs."""
-        file_paths = self.mapped_changes["modified"]
         diff_changes_per_page = get_diff_changes_per_page(
-            import_tree=self.import_tree, git_command=GitCommand.DIFF_CHANGES
+            import_tree=self.import_tree, git_command=format_diff_branch_head_command()
         )
-        affected_pages = [
-            page for page in diff_changes_per_page.keys() if page in file_paths
-        ]
         affected_specs = []
-        specs_pages = get_specs_pages()
+        specs_pages = get_specs_pages(parser=parse_spec_page_with_file_path)
 
-        for page in affected_pages:
+        for page in diff_changes_per_page.keys():
             if page in specs_pages:
                 affected_specs.append(specs_pages[page])
 
+        logger.info("Affected specs: {}", affected_specs)
         return affected_specs
 
 

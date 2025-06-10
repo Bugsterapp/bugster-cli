@@ -1,22 +1,24 @@
-from pathlib import Path
-import uuid
-import typer
-from rich.console import Console
-from rich.table import Table
-from rich.style import Style
-from rich.status import Status
-from typing import Optional, List
-import time
-import json
 import asyncio
+import json
+import time
+import uuid
 from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
+from typing import List, Optional
 
-from bugster.clients.ws_client import WebSocketClient
+import typer
+from loguru import logger
+from rich.console import Console
+from rich.status import Status
+from rich.style import Style
+from rich.table import Table
+
 from bugster.clients.mcp_client import MCPStdioClient
+from bugster.clients.ws_client import WebSocketClient
 from bugster.commands.middleware import require_api_key
 from bugster.commands.sync import get_current_branch
-from bugster.utils.file import load_config, load_test_files, get_mcp_config_path
 from bugster.libs.services.results_stream_service import ResultsStreamService
+from bugster.libs.services.update_service import DetectAffectedSpecsService
 from bugster.types import (
     Config,
     NamedTestResult,
@@ -26,6 +28,7 @@ from bugster.types import (
     WebSocketStepRequestMessage,
     WebSocketStepResultMessage,
 )
+from bugster.utils.file import get_mcp_config_path, load_config, load_test_files
 
 console = Console()
 
@@ -274,6 +277,11 @@ async def execute_test(test: Test, config: Config, **kwargs) -> NamedTestResult:
         with Status(
             f"[blue]Running test: {test.name}[/blue]", spinner="line"
         ) as status:
+            last_step_request = None
+            timeout_retry_count = 0
+            unknown_retry_count = 0
+            max_retries = 2
+
             while True:
                 try:
                     message = await ws_client.receive(timeout=300)
@@ -283,6 +291,10 @@ async def execute_test(test: Test, config: Config, **kwargs) -> NamedTestResult:
 
                 if message.get("action") == "step_request":
                     step_request = WebSocketStepRequestMessage(**message)
+                    last_step_request = step_request
+                    timeout_retry_count = 0  # Reset retry count for new step
+                    unknown_retry_count = 0  # Reset retry count for new step
+
                     await handle_step_request(
                         step_request, mcp_client, ws_client, silent
                     )
@@ -297,10 +309,61 @@ async def execute_test(test: Test, config: Config, **kwargs) -> NamedTestResult:
                         complete_message, test, 0
                     )  # time is added later
                     return result
+                elif message.get("message") == "Endpoint request timed out":
+                    if last_step_request and timeout_retry_count < max_retries:
+                        timeout_retry_count += 1
+                        logger.warning(
+                            f"Timeout occurred, retrying step ({timeout_retry_count}/{max_retries}): {last_step_request.message}"
+                        )
+                        if not silent:
+                            status.update(
+                                f"[yellow]Running test: {test.name} - Retrying ({timeout_retry_count}/{max_retries}): {last_step_request.message}[/yellow]"
+                            )
+
+                        await handle_step_request(
+                            last_step_request, mcp_client, ws_client, silent
+                        )
+                    else:
+                        logger.error(
+                            f"Max retries ({max_retries}) exceeded for step: {last_step_request.message if last_step_request else 'Unknown step'}"
+                        )
+                        if not silent:
+                            console.print(
+                                f"[red]Max retries exceeded. Please try again later[/red]"
+                            )
+                        raise typer.Exit(1)
                 else:
-                    if not silent:
-                        console.print(f"[red]Internal error: {message}[/red]")
-                    raise typer.Exit(1)
+                    if last_step_request and unknown_retry_count < max_retries:
+                        unknown_retry_count += 1
+                        logger.warning(
+                            f"Unknown message received, waiting 30s and retrying step ({unknown_retry_count}/{max_retries}): {last_step_request.message}"
+                        )
+                        logger.debug(f"Unknown message content: {message}")
+                        if not silent:
+                            status.update(
+                                f"[yellow]Running test: {test.name} - Waiting 30s, then retrying ({unknown_retry_count}/{max_retries}): {last_step_request.message}[/yellow]"
+                            )
+
+                        await asyncio.sleep(30)
+
+                        if not silent:
+                            status.update(
+                                f"[blue]Running test: {test.name} - Retrying ({unknown_retry_count}/{max_retries}): {last_step_request.message}[/blue]"
+                            )
+
+                        await handle_step_request(
+                            last_step_request, mcp_client, ws_client, silent
+                        )
+                    else:
+                        logger.error(
+                            f"Max retries ({max_retries}) exceeded for unknown message. Last step: {last_step_request.message if last_step_request else 'Unknown step'}"
+                        )
+                        logger.error(f"Final unknown message: {message}")
+                        if not silent:
+                            console.print(
+                                f"[red]Internal error. Please try again later[/red]"
+                            )
+                        raise typer.Exit(1)
 
     finally:
         await ws_client.close()
@@ -379,6 +442,7 @@ async def test_command(
     output: Optional[str] = None,
     run_id: Optional[str] = None,
     base_url: Optional[str] = None,
+    only_affected: Optional[bool] = None,
 ):
     """Run Bugster tests."""
     total_start_time = time.time()
@@ -386,12 +450,18 @@ async def test_command(
     try:
         # Load configuration and test files
         config = load_config()
+
         if base_url:
             # Override the base URL in the config
             # Used for CI/CD pipelines
             config.base_url = base_url
+
         path = Path(test_path) if test_path else None
-        test_files = load_test_files(path)
+
+        if only_affected:
+            test_files = DetectAffectedSpecsService().run()
+        else:
+            test_files = load_test_files(path)
 
         if not test_files:
             console.print("[yellow]No test files found[/yellow]")
