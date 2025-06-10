@@ -142,12 +142,8 @@ EOF
         # Add Homebrew paths based on architecture
         if [[ "$arch_type" == "arm64" ]]; then
             echo 'export PATH="/opt/homebrew/bin:$PATH"' >> "$config_file"
-            # Add Node.js 18 path for ARM64 Macs
-            echo 'export PATH="/opt/homebrew/opt/node@18/bin:$PATH"' >> "$config_file"
         else
             echo 'export PATH="/usr/local/bin:$PATH"' >> "$config_file"
-            # Add Node.js 18 path for Intel Macs
-            echo 'export PATH="/usr/local/opt/node@18/bin:$PATH"' >> "$config_file"
         fi
     fi
     
@@ -430,6 +426,41 @@ else
         exit 1
     fi
 fi
+
+# Check for Node.js version and install if needed
+print_step "Checking Node.js installation..."
+if check_node_version; then
+    node_version=$(node --version)
+    print_success "✅ Node.js $node_version is installed and meets requirements"
+else
+    if command -v node &>/dev/null; then
+        node_version=$(node --version)
+        print_error "❌ Node.js 18 or higher is required (found $node_version)"
+    else
+        print_error "❌ Node.js is not installed"
+    fi
+    
+    if [[ "$AUTO_YES" == "true" ]]; then
+        choice="y"
+    else
+        print_warning "Would you like to install Node.js 18? (y/n)"
+        read -r choice
+    fi
+    
+    if [[ "$choice" == "y" || "$choice" == "Y" ]]; then
+        if [[ "$OS" == "macOS" ]]; then
+            install_node_macos
+        else
+            install_node_linux
+        fi
+    else
+        print_error "Please install Node.js 18 or higher manually and try again."
+        exit 1
+    fi
+fi
+
+npx -y @playwright/mcp@latest --version
+npx -y playwright@1.53.0-alpha-2025-05-27 install --with-deps chrome
 
 # Download and run the Python installer script with version argument
 print_step "Downloading the Bugster CLI installer..."
