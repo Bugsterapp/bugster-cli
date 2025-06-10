@@ -1,11 +1,13 @@
 """Command-line interface for Bugster."""
 
 import asyncio
+import sys
 from typing import Optional
 
 import click
 import typer
 from rich.console import Console
+from loguru import logger
 
 from bugster import __version__
 
@@ -24,8 +26,50 @@ def version_callback(value: bool):
         raise typer.Exit()
 
 
+def configure_logging(debug: bool):
+    """Configure loguru logging based on debug flag."""
+    # Remove all existing handlers
+    logger.remove()
+
+    if debug:
+        # Add comprehensive logging when debug is enabled
+        logger.add(
+            sys.stdout,
+            level="DEBUG",
+            filter=lambda record: record["level"].name == "DEBUG",
+        )
+        logger.add(
+            sys.stdout,
+            level="INFO",
+            filter=lambda record: record["level"].name == "INFO",
+        )
+        logger.add(
+            sys.stdout,
+            level="WARNING",
+            filter=lambda record: record["level"].name == "WARNING",
+        )
+        logger.add(
+            sys.stderr,
+            level="ERROR",
+            filter=lambda record: record["level"].name == "ERROR",
+        )
+
+    # When debug is False, suppress all logs except CRITICAL
+    # This maintains compatibility with existing patterns
+    logger.add(sys.stderr, level="CRITICAL")  # Discard the message
+
+
+# Global variable to track debug state for other modules
+_debug_enabled = False
+
+
+def is_debug_enabled() -> bool:
+    """Check if debug logging is enabled."""
+    return _debug_enabled
+
+
 @app.callback()
-def version(
+def main_callback(
     version: bool = typer.Option(
         None,
         "--version",
@@ -34,8 +78,16 @@ def version(
         is_eager=True,
         help="Print the version and exit",
     ),
+    debug: bool = typer.Option(
+        False,
+        "--debug",
+        help="Enable debug logging",
+    ),
 ):
-    pass
+    """Bugster CLI - End-to-end testing for web applications."""
+    global _debug_enabled
+    _debug_enabled = debug
+    configure_logging(debug)
 
 
 @app.command()
