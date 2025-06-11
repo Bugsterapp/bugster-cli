@@ -190,7 +190,7 @@ jobs:
 
             ### Windows
             ```powershell
-            iwr https://raw.githubusercontent.com/bugster/bugster-cli/main/scripts/install.bat -useb | iex
+            iwr https://raw.githubusercontent.com/Bugsterapp/bugster-cli/main/scripts/install.bat -useb | iex
             ```
 
             ## Manual Installation
