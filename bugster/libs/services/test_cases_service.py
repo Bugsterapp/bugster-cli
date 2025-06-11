@@ -54,6 +54,7 @@ class TestCasesService:
     def _post_analysis_json(self) -> list[dict[Any, str]]:
         """Post the `analysis.json` file to the API and receive the test cases."""
         logger.info("Posting analysis.json file to the API...")
+
         if not self.analysis_json_path:
             raise BugsterError("Analysis JSON path is not set")
 
@@ -67,7 +68,9 @@ class TestCasesService:
 
             with BugsterHTTPClient() as client:
                 return client.post(
-                    endpoint=BugsterApiPath.TEST_CASES.value, files=files
+                    endpoint=BugsterApiPath.TEST_CASES.value,
+                    files=files,
+                    timeout=1000,
                 )
 
     def _save_test_case_as_yaml(self, test_case: dict[Any, str]):
