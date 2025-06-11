@@ -94,7 +94,11 @@ find_best_python() {
     for py_cmd in python3.12 python3.11 python3.10 python3 python; do
         if command -v "$py_cmd" &>/dev/null; then
             version=$($py_cmd --version 2>&1 | grep -oE '[0-9]+\.[0-9]+')
-            if [[ $(echo "$version >= 3.10" | bc -l) -eq 1 ]]; then
+            # Parse major and minor version numbers
+            major=$(echo "$version" | cut -d. -f1)
+            minor=$(echo "$version" | cut -d. -f2)
+            # Check if version >= 3.10
+            if [[ $major -gt 3 ]] || [[ $major -eq 3 && $minor -ge 10 ]]; then
                 echo "$py_cmd"
                 return 0
             fi
