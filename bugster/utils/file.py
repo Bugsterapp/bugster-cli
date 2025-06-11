@@ -4,6 +4,7 @@ import json
 import tempfile
 from pathlib import Path
 from typing import List, Optional
+import uuid
 
 import typer
 import yaml
@@ -82,7 +83,8 @@ def get_mcp_config_path(mcp_config: dict, version: str) -> str:
 
     # Create a temporary file with a specific name
     temp_dir = tempfile.gettempdir()
-    config_path = Path(temp_dir) / f"bugster_mcp_{version}.config.json"
+    unique_id = str(uuid.uuid4())
+    config_path = Path(temp_dir) / f"bugster_mcp_{version}_{unique_id}.config.json"
 
     # Only create the file if it doesn't exist
     # if not config_path.exists():

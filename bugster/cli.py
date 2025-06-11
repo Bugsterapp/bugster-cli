@@ -17,7 +17,7 @@ app = typer.Typer(
     add_completion=False,
     rich_markup_mode="rich",
     context_settings={"help_option_names": ["-h", "--help"]},
-    help=CLIMessages.get_main_help()
+    help=CLIMessages.get_main_help(),
 )
 console = Console()
 
@@ -27,14 +27,14 @@ def version_callback(value: bool):
         # Create a styled version output
         console = Console()
         console.print()
-        
+
         # Print version header
         for message, justify in CLIMessages.get_version_header(__version__):
             if justify:
                 console.print(message, justify=justify)
             else:
                 console.print()
-        
+
         raise typer.Exit()
 
 
@@ -106,6 +106,7 @@ def main_callback(
 def init():
     """Initialize Bugster CLI configuration in your project."""
     from bugster.commands.init import init_command
+
     init_command()
 
 
@@ -132,6 +133,10 @@ def _run_tests(
     only_affected: Optional[bool] = typer.Option(
         None, "--only-affected", help="Only run tests for affected files or directories"
     ),
+    max_concurrent: Optional[int] = typer.Option(
+        None, "--max-concurrent", help="Maximum number of concurrent tests"
+    ),
+    verbose: Optional[bool] = typer.Option(False, "--verbose", help="Verbose output"),
 ):
     """Run your Bugster tests."""
     from bugster.commands.test import test_command
@@ -146,6 +151,8 @@ def _run_tests(
             run_id,
             base_url,
             only_affected,
+            max_concurrent,
+            verbose,
         )
     )
 
@@ -170,6 +177,7 @@ def _analyze_codebase(
 ):
     """Analyze your codebase and generate test specs."""
     from bugster.commands.analyze import analyze_command
+
     analyze_command(options={"show_logs": show_logs, "force": force})
 
 
@@ -197,6 +205,7 @@ def update(
 ):
     """Update your test specs with the latest changes."""
     from bugster.commands.update import update_command
+
     update_command(
         update_only=update_only,
         suggest_only=suggest_only,
@@ -227,6 +236,7 @@ def sync(
 ):
     """Sync test cases with team."""
     from bugster.commands.sync import sync_command
+
     sync_command(branch, pull, push, clean_remote, dry_run, prefer)
 
 
