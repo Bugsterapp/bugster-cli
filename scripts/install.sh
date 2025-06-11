@@ -378,6 +378,38 @@ check_python_version() {
     return 1
 }
 
+# Check for Node.js version and install if needed
+print_step "Checking Node.js installation..."
+if check_node_version; then
+    node_version=$(node --version)
+    print_success "✅ Node.js $node_version is installed and meets requirements"
+else
+    if command -v node &>/dev/null; then
+        node_version=$(node --version)
+        print_error "❌ Node.js 18 or higher is required (found $node_version)"
+    else
+        print_error "❌ Node.js is not installed"
+    fi
+    
+    if [[ "$AUTO_YES" == "true" ]]; then
+        choice="y"
+    else
+        print_warning "Would you like to install Node.js 18? (y/n)"
+        read -r choice
+    fi
+    
+    if [[ "$choice" == "y" || "$choice" == "Y" ]]; then
+        if [[ "$OS" == "macOS" ]]; then
+            install_node_macos
+        else
+            install_node_linux
+        fi
+    else
+        print_error "Please install Node.js 18 or higher manually and try again."
+        exit 1
+    fi
+fi
+
 # Find best available Python version
 best_python=$(find_best_python)
 if [[ -n "$best_python" ]]; then
@@ -419,38 +451,6 @@ else
         fi
     else
         print_error "Please install Python 3.10 or higher manually and try again."
-        exit 1
-    fi
-fi
-
-# Check for Node.js version and install if needed
-print_step "Checking Node.js installation..."
-if check_node_version; then
-    node_version=$(node --version)
-    print_success "✅ Node.js $node_version is installed and meets requirements"
-else
-    if command -v node &>/dev/null; then
-        node_version=$(node --version)
-        print_error "❌ Node.js 18 or higher is required (found $node_version)"
-    else
-        print_error "❌ Node.js is not installed"
-    fi
-    
-    if [[ "$AUTO_YES" == "true" ]]; then
-        choice="y"
-    else
-        print_warning "Would you like to install Node.js 18? (y/n)"
-        read -r choice
-    fi
-    
-    if [[ "$choice" == "y" || "$choice" == "Y" ]]; then
-        if [[ "$OS" == "macOS" ]]; then
-            install_node_macos
-        else
-            install_node_linux
-        fi
-    else
-        print_error "Please install Node.js 18 or higher manually and try again."
         exit 1
     fi
 fi
