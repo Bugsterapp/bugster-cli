@@ -207,10 +207,9 @@ install_python_macos() {
     # Verify Python installation
     if command -v python3.12 &>/dev/null; then
         print_success "✅ Python 3.12 installed successfully!"
-        return 0
     else
         print_error "❌ Python 3.12 installation failed"
-        return 1
+        exit 1
     fi
 }
 
@@ -239,7 +238,7 @@ install_python_linux() {
         install_cmd="sudo zypper install -y python312 python312-pip"
     else
         print_error "❌ Unsupported package manager. Please install Python 3.12 manually."
-        return 1
+        exit 1
     fi
     
     print_step "Using $pkg_manager to install Python 3.12..."
@@ -278,10 +277,9 @@ install_python_linux() {
     # Verify Python installation
     if command -v python3.12 &>/dev/null; then
         print_success "✅ Python 3.12 installed successfully!"
-        return 0
     else
         print_error "❌ Python 3.12 installation failed"
-        return 1
+        exit 1
     fi
 }
 
@@ -312,10 +310,9 @@ install_node_macos() {
     # Verify Node.js installation
     if command -v node &>/dev/null && check_node_version; then
         print_success "✅ Node.js 18 installed successfully!"
-        return 0
     else
         print_error "❌ Node.js 18 installation failed"
-        return 1
+        exit 1
     fi
 }
 
@@ -353,7 +350,7 @@ install_node_linux() {
     else
         print_error "❌ Unsupported package manager. Please install Node.js 18 manually."
         print_warning "Visit https://nodejs.org/en/download/ for manual installation instructions."
-        return 1
+        exit 1
     fi
     
     print_step "Using $pkg_manager to install Node.js 18..."
@@ -362,11 +359,10 @@ install_node_linux() {
     # Verify Node.js installation
     if command -v node &>/dev/null && check_node_version; then
         print_success "✅ Node.js 18 installed successfully!"
-        return 0
     else
         print_error "❌ Node.js 18 installation failed"
         print_warning "Please install Node.js 18 manually from https://nodejs.org/"
-        return 1
+        exit 1
     fi
 }
 
@@ -459,8 +455,9 @@ else
     fi
 fi
 
+print_step "Installing Playwright..."
 npx -y @playwright/mcp@latest --version
-npx -y playwright@1.53.0-alpha-2025-05-27 install --with-deps chrome
+npx -y playwright@1.53.0 install --with-deps chrome
 
 # Download and run the Python installer script with version argument
 print_step "Downloading the Bugster CLI installer..."
