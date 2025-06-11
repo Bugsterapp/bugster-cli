@@ -15,9 +15,6 @@ def get_specs_paths(
     dir = os.path.join(TESTS_DIR, folder_name) if folder_name else TESTS_DIR
 
     for root, _, files in os.walk(dir):
-        if "example" in root:
-            continue
-
         for file in files:
             full_path = os.path.join(root, file)
 

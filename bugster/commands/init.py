@@ -12,15 +12,13 @@ from rich.table import Table
 import typer
 
 from bugster.constants import (
-    BUGSTER_DIR,
     CONFIG_PATH,
-    EXAMPLE_DIR,
-    EXAMPLE_TEST_FILE,
-    EXAMPLE_TEST,
+    TESTS_DIR,
 )
-from bugster.commands.middleware import require_api_key
 from bugster.utils.user_config import get_api_key
 from bugster.clients.http_client import BugsterHTTPClient, BugsterHTTPError
+from bugster.commands.auth import auth_command
+from bugster.utils.console_messages import InitMessages
 
 console = Console()
 
@@ -38,150 +36,141 @@ def create_credential_entry(
     }
 
 
-def generate_project_id(name):
-    """Generate a unique project ID from the project name.
-
-    Combines the slugified project name with a timestamp to ensure uniqueness.
-    """
-    slug = name.lower().replace(" ", "-")
-    timestamp = str(int(time.time()))
-    return f"{slug}-{timestamp}"
-
-
-def update_gitignore():
-    """Create or update .gitignore to ignore videos, next, and example directories."""
-    gitignore_path = BUGSTER_DIR / ".gitignore"
-    ignore_patterns = [
-        "videos/",
-        "next/",
-        "project.json",
-    ]
-
-    # Check if .gitignore exists
-    if os.path.exists(gitignore_path):
-        # Read existing content
-        with open(gitignore_path, "r") as f:
-            content = f.read()
-
-        # Check which patterns need to be added
-        patterns_to_add = []
-        for pattern in ignore_patterns:
-            if pattern not in content:
-                patterns_to_add.append(pattern)
-
-        # Add missing patterns
-        if patterns_to_add:
-            with open(gitignore_path, "a") as f:
-                if not content.endswith("\n"):
-                    f.write("\n")
-                for pattern in patterns_to_add:
-                    f.write(f"{pattern}\n")
-    else:
-        # Create new .gitignore with all patterns
-        with open(gitignore_path, "w") as f:
-            for pattern in ignore_patterns:
-                f.write(f"{pattern}\n")
-
-
 def find_existing_config():
-    """Check for existing Bugster configuration in current or parent directories.
-    
-    Returns:
-        tuple: (exists: bool, config_path: Path) - Whether config exists and its path
-    """
-    current = Path.cwd()
-    
-    # Check all parent directories up to root
-    while current != current.parent:
-        config_path = current / '.bugster' / 'config.yaml'
+    """Find existing configuration in current or parent directories."""
+    current_dir = Path.cwd()
+    while current_dir != current_dir.parent:  # Stop at root directory
+        config_path = current_dir / ".bugster" / "config.yaml"
         if config_path.exists():
             return True, config_path
-        current = current.parent
-    
+        current_dir = current_dir.parent
     return False, None
 
 
-@require_api_key
+def update_gitignore():
+    """Update .gitignore with Bugster entries."""
+    gitignore_path = Path(".gitignore")
+    bugster_entries = [
+        "# Bugster",
+        ".bugster/results/",
+        ".bugster/screenshots/",
+        ".bugster/videos/",
+        ".bugster/logs/",
+        ".bugster/reports/",
+        "*.bugster.log",
+    ]
+
+    # Read existing entries
+    existing_entries = []
+    if gitignore_path.exists():
+        with open(gitignore_path) as f:
+            existing_entries = f.read().splitlines()
+
+    # Add missing entries
+    with open(gitignore_path, "a") as f:
+        if existing_entries and existing_entries[-1] != "":
+            f.write("\n")  # Add newline if file doesn't end with one
+
+        for entry in bugster_entries:
+            if entry not in existing_entries:
+                f.write(f"{entry}\n")
+
+
+def generate_project_id(project_name: str) -> str:
+    """Generate a project ID from project name."""
+    # Use timestamp to ensure uniqueness
+    timestamp = int(time.time())
+    # Convert project name to lowercase and replace spaces with dashes
+    safe_name = project_name.lower().replace(" ", "-")
+    return f"{safe_name}-{timestamp}"
+
+
 def init_command():
     """Initialize Bugster CLI configuration."""
-    # Check for existing configuration in current or parent directories
+    InitMessages.welcome()
+    
+    # First check if user is authenticated
+    api_key = get_api_key()
+    if not api_key:
+        InitMessages.auth_required()
+        
+        # Run auth command
+        auth_command()
+        
+        # Check if auth was successful
+        api_key = get_api_key()
+        if not api_key:
+            InitMessages.auth_failed()
+            raise typer.Exit(1)
+        
+        InitMessages.auth_success()
+
+    # Check for existing configuration
     config_exists, existing_config_path = find_existing_config()
     
     if config_exists:
         if existing_config_path == CONFIG_PATH:
-            if not Confirm.ask("There is a project in the repository, are you sure to initialize again? This action will remove the current configuration of the project", default=False):
-                console.print("[yellow]Initialization cancelled.[/yellow]")
+            if not Confirm.ask(InitMessages.get_existing_project_warning(), default=False):
+                InitMessages.initialization_cancelled()
                 raise typer.Exit(0)
         else:
             current_dir = Path.cwd()
-            project_dir = existing_config_path.parent.parent  # Go up two levels: .bugster/config.yaml -> .bugster -> project_dir
-            console.print(f"\n[red]Error: Cannot initialize a new project inside an existing Bugster project.[/red]")
-            console.print(f"[yellow]Current directory:[/yellow] {current_dir}")
-            console.print(f"[yellow]Existing project directory:[/yellow] {project_dir}")
-            console.print("\n[red]Please initialize the project in a directory that is not inside an existing Bugster project.[/red]")
+            project_dir = existing_config_path.parent.parent
+            InitMessages.nested_project_error(current_dir, project_dir)
             raise typer.Exit(1)
 
-    # Ask for project name
-    project_name = Prompt.ask("Project name", default="My Project")
+    # Project setup
+    InitMessages.project_setup()
+    project_name = Prompt.ask("🏷️  Project name", default=Path.cwd().name)
     
-    # Get project ID from API
+    # Create project via API
     try:
-        api_key = get_api_key()
-        
         with BugsterHTTPClient() as client:
-            # Set the API key header
             client.set_headers({"x-api-key": api_key})
+            InitMessages.creating_project()
             
-            # Make the POST request
-            project_data = client.post(
-                "/api/v1/gui/project",
-                json={"name": project_name}
-            )
-            
+            project_data = client.post("/api/v1/gui/project", json={"name": project_name})
             project_id = project_data.get("project_id") or project_data.get("id")
             
             if not project_id:
-                console.print("[red]Error: Project ID not found in API response[/red]")
-                raise typer.Exit(1)
+                raise Exception("Project ID not found in response")
                 
-    except BugsterHTTPError as e:
-        console.print(f"[red]Error creating project via API: {str(e)}[/red]")
-        console.print("[yellow]Falling back to local project ID generation[/yellow]")
-        project_id = generate_project_id(project_name)
+            InitMessages.project_created()
+            
     except Exception as e:
-        console.print(f"[red]Unexpected error: {str(e)}[/red]")
-        console.print("[yellow]Falling back to local project ID generation[/yellow]")
+        InitMessages.project_creation_error(str(e))
         project_id = generate_project_id(project_name)
 
-    base_url = Prompt.ask("Base URL", default="http://localhost:3000")
+    InitMessages.show_project_id(project_id)
+    base_url = Prompt.ask("\n🌐 Application URL", default="http://localhost:3000")
 
-    # Initialize empty credentials array
+    # Credentials setup
+    InitMessages.auth_setup()
     credentials = []
 
-    if Prompt.ask("Do you want to add credentials? (y/n)", default="n").lower() == "y":
+    if Prompt.ask("➕ Would you like to add custom login credentials? (y/n)", default="y").lower() == "y":
         while True:
             identifier = Prompt.ask(
-                "Credential identifier (e.g. admin-user, test-manager)",
-                default="custom-user",
+                "👤 Credential name",
+                default="admin",
             )
-            username = Prompt.ask("Username")
-            password = Prompt.ask("Password", password=True)
+            username = Prompt.ask("📧 Username/Email")
+            password = Prompt.ask("🔒 Password", password=True)
 
-            credentials.append(
-                create_credential_entry(
-                    identifier=identifier,
-                    username=username,
-                    password=password,
-                )
-            )
-            break
-
+            credentials.append(create_credential_entry(identifier, username, password))
+            InitMessages.credential_added()
+            
+            if not Prompt.ask("➕ Add another credential? (y/n)", default="n").lower() == "y":
+                break
     else:
-        # If no custom credentials, use default admin
         credentials.append(create_credential_entry())
+        InitMessages.using_default_credentials()
+
+    # Create project structure
+    InitMessages.project_structure_setup()
 
     # Create folders
-    EXAMPLE_DIR.mkdir(parents=True, exist_ok=True)
+    TESTS_DIR.mkdir(parents=True, exist_ok=True)
 
     # Update .gitignore
     update_gitignore()
@@ -196,22 +185,28 @@ def init_command():
     with open(CONFIG_PATH, "w") as f:
         yaml.dump(config, f, default_flow_style=False)
 
-    # Save example test
-    with open(EXAMPLE_TEST_FILE, "w") as f:
-        f.write(EXAMPLE_TEST)
+    # Show success message and summary
+    InitMessages.initialization_success()
+    
+    # Show project summary
+    summary_table = InitMessages.create_project_summary_table(
+        project_name,
+        project_id,
+        base_url,
+        CONFIG_PATH,
+        len(credentials)
+    )
+    console.print()
+    console.print(summary_table)
 
-    # Show results
-    console.print(f"[green]Configuration created at {CONFIG_PATH}")
-    console.print(f"[green]Example test created at {EXAMPLE_TEST_FILE}")
-
-    # Show credentials table only if custom credentials were added
-    if len(credentials) > 1 or (len(credentials) == 1 and credentials[0] != create_credential_entry()):
-        table = Table(title="Configured Credentials")
-        table.add_column("ID", style="cyan")
-        table.add_column("Username", style="green")
-        table.add_column("Password", style="yellow")
-
-        for cred in credentials:
-            table.add_row(cred["id"], cred["username"], cred["password"])
-
-        console.print(table)
+    # Show credentials if custom ones were added
+    if len(credentials) > 1 or (len(credentials) == 1 and credentials[0]["id"] != "admin"):
+        creds_table = InitMessages.create_credentials_table(credentials)
+        console.print()
+        console.print(creds_table)
+    
+    # Show success panel
+    success_panel = InitMessages.create_success_panel()
+    console.print()
+    console.print(success_panel)
+    console.print()

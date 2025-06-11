@@ -5,40 +5,73 @@ Login command implementation for Bugster CLI.
 from rich.console import Console
 from rich.prompt import Prompt
 from bugster.utils.user_config import save_api_key
+from bugster.utils.console_messages import AuthMessages
 import webbrowser
 
 console = Console()
 
-DASHBOARD_URL = (
-    "https://gui.bugster.dev/"  # Update this with your actual dashboard URL
-)
+DASHBOARD_URL = "https://gui.bugster.dev/"  # Update this with your actual dashboard URL
 API_KEY_HINT = "bugster_..."
 
-
 def auth_command():
-    console.print("\n🔐 [bold cyan]Welcome to Bugster CLI[/bold cyan]\n")
-    console.print(
-        "To use Bugster CLI, you'll need an API key. "
-        "Generate it from your [bold][link]%s[/link][/bold]." % DASHBOARD_URL
-    )
-    console.print("\n[dim]Tip: In the dashboard, navigate to Dashboard > API Keys.[/dim]\n")
-    if Prompt.ask("🌐 Open the dashboard in your browser now? (y/N)", default="N").lower() == "y":
+    """Authenticate user with Bugster API key."""
+    console.print()
+    
+    # Show authentication panel
+    auth_panel = AuthMessages.create_auth_panel()
+    console.print(auth_panel)
+    console.print()
+    
+    # Option to open browser
+    if Prompt.ask(
+        AuthMessages.ask_open_dashboard(),
+        choices=["y", "n"],
+        default="y"
+    ) == "y":
+        AuthMessages.opening_dashboard()
         webbrowser.open(DASHBOARD_URL)
-
-    # Prompt for API key
-    api_key = Prompt.ask(f"👉 Paste your API key (hint: {API_KEY_HINT})").strip()
-
-    # Validate
-    if not api_key:
-        console.print("\n❌ [red]API key cannot be empty.[/red]")
-        return
-    if not api_key.startswith("bugster_"):
-        console.print("\n⚠️ [yellow]Warning: API keys should start with 'bugster_'. Please double-check.[/yellow]")
-
-    # Save
+        console.print()
+    
+    # Get API key with validation
+    while True:
+        AuthMessages.api_key_prompt()
+        api_key = Prompt.ask(AuthMessages.get_api_key_prompt()).strip()
+        
+        if not api_key:
+            AuthMessages.empty_api_key_error()
+            continue
+            
+        if not api_key.startswith("bugster_"):
+            AuthMessages.invalid_prefix_warning()
+            if Prompt.ask(
+                AuthMessages.get_continue_anyway_prompt(),
+                choices=["y", "n"],
+                default="n"
+            ) == "n":
+                continue
+        
+        # Test API key
+        AuthMessages.validating_api_key()
+        
+        # Add API key validation logic here
+        if validate_api_key(api_key):  # You'll need to implement this
+            break
+        else:
+            AuthMessages.invalid_api_key_error()
+            continue
+    
+    # Save API key
     try:
         save_api_key(api_key)
-        console.print("\n✅ [green]API key saved! You're ready to go.[/green]")
-        console.print("[dim]Try: [bold]bugster init[/bold][/dim]")
+        AuthMessages.auth_success()
     except Exception as e:
-        console.print(f"\n❌ [red]Error saving API key: {str(e)}[/red]")
+        AuthMessages.auth_error(e)
+
+def validate_api_key(api_key: str) -> bool:
+    """Validate API key by making a test request"""
+    try:
+        # Add actual API validation logic here
+        # For now, just check format
+        return len(api_key) > 10 and api_key.startswith("bugster_")
+    except Exception:
+        return False

@@ -5,7 +5,6 @@ from bugster.commands.middleware import require_api_key
 from bugster.libs.services.update_service import (
     get_update_service,
 )
-from bugster.libs.utils.log import setup_logger
 
 console = Console()
 
@@ -18,12 +17,15 @@ def update_command(
     show_logs: bool = False,
 ):
     """Run Bugster CLI update command."""
-    assert sum([update_only, suggest_only, delete_only]) <= 1, (
-        "At most one of update_only, suggest_only, delete_only can be True"
-    )
+    # Note: Logger configuration is now handled globally by the CLI
+    # The --debug flag controls logging visibility across all commands
+    # Legacy show_logs parameter is maintained for backward compatibility but is ignored
+
+    assert (
+        sum([update_only, suggest_only, delete_only]) <= 1
+    ), "At most one of update_only, suggest_only, delete_only can be True"
 
     try:
-        setup_logger(show_logs=show_logs)
         console.print("✓ Analyzing code changes...")
         update_service = get_update_service(
             update_only=update_only, suggest_only=suggest_only, delete_only=delete_only
