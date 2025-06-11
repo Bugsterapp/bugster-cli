@@ -477,9 +477,9 @@ else
 fi
 
 if [[ "$VERSION" == "latest" ]]; then
-    curl -sSL https://raw.githubusercontent.com/Bugsterapp/bugster-cli/giovaborgogno/DEV-33/scripts/install.py | "$PYTHON_PATH"
+    curl -sSL https://raw.githubusercontent.com/Bugsterapp/bugster-cli/main/scripts/install.py | "$PYTHON_PATH"
 else
-    curl -sSL https://raw.githubusercontent.com/Bugsterapp/bugster-cli/giovaborgogno/DEV-33/scripts/install.py | "$PYTHON_PATH" - -v "$VERSION"
+    curl -sSL https://raw.githubusercontent.com/Bugsterapp/bugster-cli/main/scripts/install.py | "$PYTHON_PATH" - -v "$VERSION"
 fi
 
 exit_code=$?

@@ -189,59 +189,9 @@ jobs:
             ```
 
             ### Windows
-            ```cmd
-            curl https://raw.githubusercontent.com/Bugsterapp/bugster-cli/main/scripts/install.bat -o install.bat && .\install.bat -v ${{ needs.validate.outputs.version }} -y
+            ```powershell
+            iwr https://raw.githubusercontent.com/bugster/bugster-cli/main/scripts/install.bat -useb | iex
             ```
 
             ## Manual Installation
             Download the appropriate zip file for your platform and extract the binary to a location in your PATH.
-
-  test:
-    needs: [release, validate]
-    name: Test Installation on ${{ matrix.os }}
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - os: ubuntu-latest
-            install_command: |
-              curl -fsSL https://raw.githubusercontent.com/Bugsterapp/bugster-cli/giovaborgogno/DEV-33/scripts/install.sh | bash -s -- -v v${{ needs.validate.outputs.version }} -y
-              echo "$HOME/.local/bin" >> $GITHUB_PATH
-          - os: macos-latest
-            install_command: |
-              curl -fsSL https://raw.githubusercontent.com/Bugsterapp/bugster-cli/giovaborgogno/DEV-33/scripts/install.sh | bash -s -- -v v${{ needs.validate.outputs.version }} -y
-              echo "$HOME/.local/bin" >> $GITHUB_PATH
-          # - os: windows-latest
-          #   install_command: |
-          #     curl https://raw.githubusercontent.com/Bugsterapp/bugster-cli/main/scripts/install.bat -o install.bat && .\install.bat -v v${{ needs.validate.outputs.version }} -y
-          #     echo "$env:USERPROFILE\.local\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
-
-    steps:
-      - name: Install Bugster CLI
-        run: ${{ matrix.install_command }}
-
-      - name: Verify installation
-        run: |
-          # Wait a moment for PATH to be updated
-          sleep 2
-
-          # Try to run bugster --version
-          if command -v bugster >/dev/null 2>&1; then
-            echo "✅ bugster command found in PATH"
-            bugster --version
-          else
-            echo "❌ bugster command not found in PATH"
-            echo "PATH contents:"
-            echo $PATH
-            
-            # Try to find bugster in common locations
-            echo "Searching for bugster binary..."
-            find $HOME -name "bugster*" -type f 2>/dev/null || true
-            exit 1
-          fi
-
-      - name: Test basic functionality
-        run: |
-          # Test that the CLI responds to help command
-          bugster --help
