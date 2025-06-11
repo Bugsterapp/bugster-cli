@@ -251,7 +251,15 @@ def download_and_extract(version):
     if system == "Windows":
         asset_name = "bugster-windows.zip"
     elif system == "Darwin":  # macOS
-        asset_name = "bugster-macos.zip"
+        # Detect macOS architecture
+        machine = platform.machine().lower()
+        if machine in ["x86_64", "amd64"]:
+            asset_name = "bugster-macos-intel.zip"
+        elif machine in ["arm64", "aarch64"]:
+            asset_name = "bugster-macos-arm64.zip"
+        else:
+            print_warning(f"Unknown macOS architecture: {machine}, defaulting to Intel")
+            asset_name = "bugster-macos-intel.zip"
     elif system == "Linux":
         asset_name = "bugster-linux.zip"
     else:
