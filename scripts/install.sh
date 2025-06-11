@@ -224,7 +224,7 @@ install_python_linux() {
     # Detect package manager and prepare installation command
     if command -v apt-get &>/dev/null; then
         pkg_manager="apt"
-        install_cmd="sudo add-apt-repository -y ppa:deadsnakes/ppa && sudo apt-get update && sudo apt-get install -y python3.12 python3.12-venv python3.12-distutils"
+        install_cmd="sudo apt-get update && sudo apt-get install -y software-properties-common && sudo add-apt-repository -y ppa:deadsnakes/ppa && sudo apt-get install -y python3.12 python3.12-venv python3.12-distutils"
     elif command -v dnf &>/dev/null; then
         pkg_manager="dnf"
         install_cmd="sudo dnf install -y python3.12 python3.12-pip"
