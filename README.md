@@ -6,12 +6,12 @@ Command line interface for Bugster
 
 ### Automated Installation (Recommended)
 
-Our installers will check for Python and automatically install it if needed (with your permission).
+Our installers will check for Python 3.10+, Node.js 18+ and Playwright dependencies, automatically installing them if needed (with your permission).
 
 #### macOS/Linux
 
 ```bash
-curl -sSL https://github.com/Bugsterapp/bugster-cli/releases/latest/download/install.sh | bash
+curl -sSL https://github.com/Bugsterapp/bugster-cli/releases/latest/download/install.sh | bash -s -- -y
 ```
 
 #### Windows
@@ -21,7 +21,7 @@ curl -sSL https://github.com/Bugsterapp/bugster-cli/releases/latest/download/ins
 
 ### Manual Installation
 
-If you already have Python installed:
+If you already have Python 3.10+, Node.js 18+ and Playwright installed:
 
 ```bash
 curl -sSL https://raw.githubusercontent.com/Bugsterapp/bugster-cli/main/scripts/install.py | python3

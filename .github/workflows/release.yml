@@ -191,7 +191,7 @@ jobs:
             ## Installation
             ### Linux/macOS
             ```bash
-            curl -fsSL https://raw.githubusercontent.com/Bugsterapp/bugster-cli/main/scripts/install.sh | bash -s -- -v ${{ needs.validate.outputs.version }} -y
+            curl -fsSL https://github.com/Bugsterapp/bugster-cli/releases/download/v${{ needs.validate.outputs.version }}/install.sh | bash -s -- -y -v v${{ needs.validate.outputs.version }}
             ```
 
             ### Windows
