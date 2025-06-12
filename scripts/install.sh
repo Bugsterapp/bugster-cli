@@ -466,15 +466,14 @@ npx -y playwright@1.53.0 install --with-deps chrome
 # Download and run the Python installer script with version argument
 print_step "Downloading the Bugster CLI installer..."
 
-# Get the full path to Python 3.12
-if [[ "$OS" == "macOS" ]]; then
-    PYTHON_PATH="/opt/homebrew/opt/python@3.12/bin/python3.12"
-    if [[ ! -f "$PYTHON_PATH" ]]; then
-        PYTHON_PATH="/usr/local/opt/python@3.12/bin/python3.12"
-    fi
-else
-    PYTHON_PATH="/usr/bin/python3.12"
+# Find the best available Python executable
+PYTHON_PATH=$(find_best_python)
+if [[ -z "$PYTHON_PATH" ]]; then
+    print_error "❌ No suitable Python version found. Please install Python 3.10 or higher."
+    exit 1
 fi
+
+print_step "Using Python: $PYTHON_PATH"
 
 if [[ "$VERSION" == "latest" ]]; then
     curl -sSL https://raw.githubusercontent.com/Bugsterapp/bugster-cli/main/scripts/install.py | "$PYTHON_PATH"

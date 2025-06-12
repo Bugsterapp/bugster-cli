@@ -35,7 +35,6 @@ RESET = "\033[0m"
 GITHUB_REPO = "https://github.com/Bugsterapp/bugster-cli"
 GITHUB_API = "https://api.github.com/repos/Bugsterapp/bugster-cli"
 DEFAULT_VERSION = "v0.1.0"
-REQUIRED_PYTHON_VERSION = (3, 12)
 MINIMUM_PYTHON_VERSION = (3, 10)
 
 
@@ -176,70 +175,6 @@ def download_with_progress(url, destination):
         return False
 
 
-def find_python_executable():
-    """Find the best available Python executable."""
-    system = platform.system()
-    paths = []
-
-    if system == "Windows":
-        # Windows-specific paths
-        local_app_data = os.environ.get("LOCALAPPDATA", "")
-        program_files = os.environ.get("PROGRAMFILES", "")
-        program_files_x86 = os.environ.get("PROGRAMFILES(x86)", "")
-        paths.extend(
-            [
-                os.path.join(
-                    local_app_data, "Programs", "Python", "Python312", "python.exe"
-                ),
-                os.path.join(program_files, "Python312", "python.exe"),
-                os.path.join(program_files_x86, "Python312", "python.exe"),
-                os.path.join(
-                    local_app_data, "Microsoft", "WindowsApps", "python3.12.exe"
-                ),
-            ]
-        )
-    else:
-        # Unix-like systems (macOS/Linux)
-        paths.extend(
-            [
-                "/usr/local/bin/python3.12",
-                "/usr/bin/python3.12",
-                "/opt/homebrew/bin/python3.12",
-            ]
-        )
-
-    # Add common paths
-    paths.extend(
-        [
-            "python3.12",
-            "python3.11",
-            "python3.10",
-            "python3",
-            "python",
-        ]
-    )
-
-    for path in paths:
-        try:
-            if system == "Windows" and os.path.exists(path):
-                result = run_command(f'"{path}" --version', check=False)
-            else:
-                result = run_command(
-                    f"command -v {path} && {path} --version", check=False
-                )
-
-            if result and result.returncode == 0:
-                version_str = result.stdout.strip()
-                if "Python" in version_str:
-                    version = tuple(map(int, version_str.split()[1].split(".")))
-                    if version >= MINIMUM_PYTHON_VERSION:
-                        return path, version
-        except Exception:
-            continue
-
-    return None, None
-
-
 def download_and_extract(version):
     """Download and extract the appropriate asset for the current platform."""
     system = platform.system()
@@ -363,22 +298,11 @@ def cleanup(temp_dir):
         pass
 
 
-def ensure_python312():
-    """Ensure Python 3.12 is available and set as default."""
+def ensure_python310():
+    """Ensure Python 3.10 is available and set as default."""
     current_version = sys.version_info[:2]
-    if current_version >= REQUIRED_PYTHON_VERSION:
+    if current_version >= MINIMUM_PYTHON_VERSION:
         return True, sys.executable
-
-    # Find best available Python
-    python_path, python_version = find_python_executable()
-
-    if python_path and python_version >= REQUIRED_PYTHON_VERSION:
-        return True, python_path
-    elif python_version and python_version >= MINIMUM_PYTHON_VERSION:
-        print_warning(
-            f"Using Python {'.'.join(map(str, python_version))} (Python {'.'.join(map(str, REQUIRED_PYTHON_VERSION))} recommended)"
-        )
-        return True, python_path
 
     print_error(
         f"Python {'.'.join(map(str, MINIMUM_PYTHON_VERSION))} or higher is required"
@@ -401,8 +325,8 @@ def main():
     if not validate_version(args.version):
         sys.exit(1)
 
-    # Ensure we have Python 3.12 (or at least 3.10)
-    python_ok, python_path = ensure_python312()
+    # Ensure we have Python 3.10
+    python_ok, python_path = ensure_python310()
     if not python_ok:
         sys.exit(1)
 
