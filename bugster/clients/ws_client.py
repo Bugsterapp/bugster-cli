@@ -4,6 +4,7 @@ WebSocket client implementation using websockets library
 
 import json
 import ssl
+import asyncio
 from typing import Dict, Any, Optional
 import websockets
 from websockets.asyncio.client import ClientConnection
@@ -63,9 +64,19 @@ class WebSocketClient:
             raise RuntimeError("WebSocket not connected")
         await self.ws.send(json.dumps(data))
 
-    async def receive(self) -> Dict[str, Any]:
-        """Receive data from WebSocket server"""
+    async def receive(self, timeout: Optional[float] = None) -> Dict[str, Any]:
+        """Receive data from WebSocket server with optional timeout"""
         if not self.ws:
             raise RuntimeError("WebSocket not connected")
-        message = await self.ws.recv()
+
+        if timeout:
+            try:
+                message = await asyncio.wait_for(self.ws.recv(), timeout=timeout)
+            except asyncio.TimeoutError:
+                raise asyncio.TimeoutError(
+                    f"No message received within {timeout} seconds"
+                )
+        else:
+            message = await self.ws.recv()
+
         return json.loads(message)

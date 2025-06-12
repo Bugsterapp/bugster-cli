@@ -35,7 +35,6 @@ RESET = "\033[0m"
 GITHUB_REPO = "https://github.com/Bugsterapp/bugster-cli"
 GITHUB_API = "https://api.github.com/repos/Bugsterapp/bugster-cli"
 DEFAULT_VERSION = "v0.1.0"
-REQUIRED_PYTHON_VERSION = (3, 12)
 MINIMUM_PYTHON_VERSION = (3, 10)
 
 
@@ -176,70 +175,6 @@ def download_with_progress(url, destination):
         return False
 
 
-def find_python_executable():
-    """Find the best available Python executable."""
-    system = platform.system()
-    paths = []
-
-    if system == "Windows":
-        # Windows-specific paths
-        local_app_data = os.environ.get("LOCALAPPDATA", "")
-        program_files = os.environ.get("PROGRAMFILES", "")
-        program_files_x86 = os.environ.get("PROGRAMFILES(x86)", "")
-        paths.extend(
-            [
-                os.path.join(
-                    local_app_data, "Programs", "Python", "Python312", "python.exe"
-                ),
-                os.path.join(program_files, "Python312", "python.exe"),
-                os.path.join(program_files_x86, "Python312", "python.exe"),
-                os.path.join(
-                    local_app_data, "Microsoft", "WindowsApps", "python3.12.exe"
-                ),
-            ]
-        )
-    else:
-        # Unix-like systems (macOS/Linux)
-        paths.extend(
-            [
-                "/usr/local/bin/python3.12",
-                "/usr/bin/python3.12",
-                "/opt/homebrew/bin/python3.12",
-            ]
-        )
-
-    # Add common paths
-    paths.extend(
-        [
-            "python3.12",
-            "python3.11",
-            "python3.10",
-            "python3",
-            "python",
-        ]
-    )
-
-    for path in paths:
-        try:
-            if system == "Windows" and os.path.exists(path):
-                result = run_command(f'"{path}" --version', check=False)
-            else:
-                result = run_command(
-                    f"command -v {path} && {path} --version", check=False
-                )
-
-            if result and result.returncode == 0:
-                version_str = result.stdout.strip()
-                if "Python" in version_str:
-                    version = tuple(map(int, version_str.split()[1].split(".")))
-                    if version >= MINIMUM_PYTHON_VERSION:
-                        return path, version
-        except Exception:
-            continue
-
-    return None, None
-
-
 def download_and_extract(version):
     """Download and extract the appropriate asset for the current platform."""
     system = platform.system()
@@ -251,7 +186,15 @@ def download_and_extract(version):
     if system == "Windows":
         asset_name = "bugster-windows.zip"
     elif system == "Darwin":  # macOS
-        asset_name = "bugster-macos.zip"
+        # Detect macOS architecture
+        machine = platform.machine().lower()
+        if machine in ["x86_64", "amd64"]:
+            asset_name = "bugster-macos-intel.zip"
+        elif machine in ["arm64", "aarch64"]:
+            asset_name = "bugster-macos-arm64.zip"
+        else:
+            print_warning(f"Unknown macOS architecture: {machine}, defaulting to Intel")
+            asset_name = "bugster-macos-intel.zip"
     elif system == "Linux":
         asset_name = "bugster-linux.zip"
     else:
@@ -331,6 +274,120 @@ def install_executable(executable_path):
         return None
 
 
+def add_to_path_windows(install_dir):
+    """Add directory to PATH on Windows."""
+    try:
+        import winreg
+
+        # Open the user environment variables registry key
+        key = winreg.OpenKey(
+            winreg.HKEY_CURRENT_USER, "Environment", 0, winreg.KEY_ALL_ACCESS
+        )
+
+        try:
+            # Get current PATH value
+            current_path, _ = winreg.QueryValueEx(key, "PATH")
+        except FileNotFoundError:
+            # PATH doesn't exist, create it
+            current_path = ""
+
+        # Check if the directory is already in PATH
+        if install_dir in current_path.split(os.pathsep):
+            print_success(f"✅ {install_dir} is already in PATH")
+            winreg.CloseKey(key)
+            return True
+
+        # Add the directory to PATH
+        if current_path:
+            new_path = f"{current_path}{os.pathsep}{install_dir}"
+        else:
+            new_path = install_dir
+
+        winreg.SetValueEx(key, "PATH", 0, winreg.REG_EXPAND_SZ, new_path)
+        winreg.CloseKey(key)
+
+        # Notify Windows of environment change
+        run_command(
+            "powershell -Command \"& {[Environment]::SetEnvironmentVariable('PATH', [Environment]::GetEnvironmentVariable('PATH', 'User'), 'User')}\""
+        )
+
+        print_success(f"✅ Added {install_dir} to PATH")
+        return True
+
+    except ImportError:
+        print_error("winreg module not available")
+        return False
+    except Exception as e:
+        print_error(f"Error adding to PATH on Windows: {e}")
+        return False
+
+
+def add_to_path_unix(install_dir):
+    """Add directory to PATH on Unix-like systems."""
+    shell = os.environ.get("SHELL", "/bin/bash")
+    home_dir = os.path.expanduser("~")
+
+    # Determine which shell config file to update
+    if "zsh" in shell:
+        config_files = [".zshrc", ".zprofile"]
+    elif "bash" in shell:
+        config_files = [".bashrc", ".bash_profile", ".profile"]
+    elif "fish" in shell:
+        config_files = [".config/fish/config.fish"]
+    else:
+        config_files = [".profile"]  # Fallback
+
+    # Try to find an existing config file
+    config_file = None
+    for cf in config_files:
+        full_path = os.path.join(home_dir, cf)
+        if os.path.exists(full_path):
+            config_file = full_path
+            break
+
+    # If no config file exists, create the first one in the list
+    if config_file is None:
+        config_file = os.path.join(home_dir, config_files[0])
+        # Create directory if needed (for fish config)
+        os.makedirs(os.path.dirname(config_file), exist_ok=True)
+
+    try:
+        # Check if PATH export already exists
+        path_export = f'export PATH="$PATH:{install_dir}"'
+
+        if os.path.exists(config_file):
+            with open(config_file, "r") as f:
+                content = f.read()
+                if install_dir in content:
+                    print_success(
+                        f"✅ {install_dir} is already in PATH (found in {config_file})"
+                    )
+                    return True
+
+        # Add PATH export to config file
+        with open(config_file, "a") as f:
+            f.write(f"\n# Added by Bugster CLI installer\n{path_export}\n")
+
+        print_success(f"✅ Added {install_dir} to PATH in {config_file}")
+        return True
+
+    except Exception as e:
+        print_error(f"Error adding to PATH: {e}")
+        return False
+
+
+def add_to_path(install_dir):
+    """Add installation directory to PATH."""
+    print_step("Adding installation directory to PATH...")
+
+    system = platform.system()
+
+    if system == "Windows":
+        return add_to_path_windows(install_dir)
+    else:
+        return add_to_path_unix(install_dir)
+
+
 def test_installation(executable_path, version):
     """Test the Bugster CLI installation."""
     print_step("Testing installation...")
@@ -355,22 +412,11 @@ def cleanup(temp_dir):
         pass
 
 
-def ensure_python312():
-    """Ensure Python 3.12 is available and set as default."""
+def ensure_python310():
+    """Ensure Python 3.10 is available and set as default."""
     current_version = sys.version_info[:2]
-    if current_version >= REQUIRED_PYTHON_VERSION:
+    if current_version >= MINIMUM_PYTHON_VERSION:
         return True, sys.executable
-
-    # Find best available Python
-    python_path, python_version = find_python_executable()
-
-    if python_path and python_version >= REQUIRED_PYTHON_VERSION:
-        return True, python_path
-    elif python_version and python_version >= MINIMUM_PYTHON_VERSION:
-        print_warning(
-            f"Using Python {'.'.join(map(str, python_version))} (Python {'.'.join(map(str, REQUIRED_PYTHON_VERSION))} recommended)"
-        )
-        return True, python_path
 
     print_error(
         f"Python {'.'.join(map(str, MINIMUM_PYTHON_VERSION))} or higher is required"
@@ -393,8 +439,8 @@ def main():
     if not validate_version(args.version):
         sys.exit(1)
 
-    # Ensure we have Python 3.12 (or at least 3.10)
-    python_ok, python_path = ensure_python312()
+    # Ensure we have Python 3.10
+    python_ok, python_path = ensure_python310()
     if not python_ok:
         sys.exit(1)
 
@@ -417,17 +463,58 @@ def main():
         if not installed_path:
             sys.exit(1)
 
+        # Add to PATH (unless --no-path is specified)
+        install_dir = os.path.dirname(installed_path)
+        path_added = False
+        path_added = add_to_path(install_dir)
+
         # Test installation
         if not test_installation(installed_path, version):
             sys.exit(1)
 
         # Print installation success message
-        print_success("\nBugster CLI has been installed successfully!")
-        print_warning("\nMake sure the installation directory is in your PATH:")
-        if platform.system() == "Windows":
-            print(f"  {os.path.dirname(installed_path)}")
+        print_success("\n🎉 Bugster CLI has been installed successfully!")
+
+        if not path_added:
+            print_warning(f"\nNote: Installation directory was not added to PATH:")
+            print(f"  {install_dir}")
+            print("\nTo use Bugster CLI, either:")
+            print(f"  1. Add {install_dir} to your PATH manually")
+            print(f"  2. Run the full path: {installed_path}")
         else:
-            print("  ~/.local/bin")
+            # Show restart/source message only if PATH was actually modified
+            system = platform.system()
+            if system == "Windows":
+                print_warning(
+                    "\n⚠️  You may need to restart your terminal/command prompt for PATH changes to take effect"
+                )
+            else:
+                # Determine config file for Unix systems
+                shell = os.environ.get("SHELL", "/bin/bash")
+                home_dir = os.path.expanduser("~")
+                if "zsh" in shell:
+                    config_files = [".zshrc", ".zprofile"]
+                elif "bash" in shell:
+                    config_files = [".bashrc", ".bash_profile", ".profile"]
+                elif "fish" in shell:
+                    config_files = [".config/fish/config.fish"]
+                else:
+                    config_files = [".profile"]
+
+                config_file = None
+                for cf in config_files:
+                    full_path = os.path.join(home_dir, cf)
+                    if os.path.exists(full_path):
+                        config_file = full_path
+                        break
+
+                if config_file:
+                    print_warning("\n⚠️  You may need to restart your terminal or run:")
+                    print(f"    source {config_file}")
+                else:
+                    print_warning(
+                        "\n⚠️  You may need to restart your terminal for PATH changes to take effect"
+                    )
 
         print("\nTo start using Bugster CLI, run:")
         print("  bugster --help")

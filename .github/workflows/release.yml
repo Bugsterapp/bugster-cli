@@ -59,8 +59,10 @@ jobs:
             asset_name: bugster-linux
           - os: windows-latest
             asset_name: bugster-windows.exe
-          - os: macos-latest
-            asset_name: bugster-macos
+          - os: macos-13 # macOS Intel
+            asset_name: bugster-macos-intel
+          - os: macos-latest # macOS Apple Silicon (M1/M2)
+            asset_name: bugster-macos-arm64
 
     steps:
       - uses: actions/checkout@v3
@@ -137,9 +139,11 @@ jobs:
           mkdir -p release
           cp artifacts/bugster-linux/bugster-linux release/
           cp artifacts/bugster-windows.exe/bugster-windows.exe release/
-          cp artifacts/bugster-macos/bugster-macos release/
+          cp artifacts/bugster-macos-intel/bugster-macos-intel release/
+          cp artifacts/bugster-macos-arm64/bugster-macos-arm64 release/
           chmod +x release/bugster-linux
-          chmod +x release/bugster-macos
+          chmod +x release/bugster-macos-intel
+          chmod +x release/bugster-macos-arm64
 
           # Copy installation wrapper scripts
           cp scripts/install.sh release/
@@ -149,14 +153,16 @@ jobs:
           # Create zip files for each platform
           # Rename binaries to 'bugster' or 'bugster.exe' inside the zip files as expected by the installer
           cd release
-          mkdir -p linux windows macos
+          mkdir -p linux windows macos-intel macos-arm64
           cp bugster-linux linux/bugster
           cp bugster-windows.exe windows/bugster.exe
-          cp bugster-macos macos/bugster
+          cp bugster-macos-intel macos-intel/bugster
+          cp bugster-macos-arm64 macos-arm64/bugster
 
           cd linux && zip ../bugster-linux.zip bugster && cd ..
           cd windows && zip ../bugster-windows.zip bugster.exe && cd ..
-          cd macos && zip ../bugster-macos.zip bugster && cd ..
+          cd macos-intel && zip ../bugster-macos-intel.zip bugster && cd ..
+          cd macos-arm64 && zip ../bugster-macos-arm64.zip bugster && cd ..
 
           # Keep the original binaries available as well
           cd ..
@@ -185,7 +191,7 @@ jobs:
             ## Installation
             ### Linux/macOS
             ```bash
-            curl -fsSL https://raw.githubusercontent.com/Bugsterapp/bugster-cli/main/scripts/install.sh | bash -s -- -v ${{ needs.validate.outputs.version }} -y
+            curl -fsSL https://github.com/Bugsterapp/bugster-cli/releases/download/v${{ needs.validate.outputs.version }}/install.sh | bash -s -- -y -v v${{ needs.validate.outputs.version }}
             ```
 
             ### Windows
@@ -195,3 +201,9 @@ jobs:
 
             ## Manual Installation
             Download the appropriate zip file for your platform and extract the binary to a location in your PATH.
+
+            ### Available Downloads:
+            - **Linux**: `bugster-linux.zip`
+            - **Windows**: `bugster-windows.zip`
+            - **macOS Intel (x86_64)**: `bugster-macos-intel.zip`
+            - **macOS Apple Silicon (ARM64)**: `bugster-macos-arm64.zip`
