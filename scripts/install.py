@@ -274,6 +274,120 @@ def install_executable(executable_path):
         return None
 
 
+def add_to_path_windows(install_dir):
+    """Add directory to PATH on Windows."""
+    try:
+        import winreg
+
+        # Open the user environment variables registry key
+        key = winreg.OpenKey(
+            winreg.HKEY_CURRENT_USER, "Environment", 0, winreg.KEY_ALL_ACCESS
+        )
+
+        try:
+            # Get current PATH value
+            current_path, _ = winreg.QueryValueEx(key, "PATH")
+        except FileNotFoundError:
+            # PATH doesn't exist, create it
+            current_path = ""
+
+        # Check if the directory is already in PATH
+        if install_dir in current_path.split(os.pathsep):
+            print_success(f"✅ {install_dir} is already in PATH")
+            winreg.CloseKey(key)
+            return True
+
+        # Add the directory to PATH
+        if current_path:
+            new_path = f"{current_path}{os.pathsep}{install_dir}"
+        else:
+            new_path = install_dir
+
+        winreg.SetValueEx(key, "PATH", 0, winreg.REG_EXPAND_SZ, new_path)
+        winreg.CloseKey(key)
+
+        # Notify Windows of environment change
+        run_command(
+            "powershell -Command \"& {[Environment]::SetEnvironmentVariable('PATH', [Environment]::GetEnvironmentVariable('PATH', 'User'), 'User')}\""
+        )
+
+        print_success(f"✅ Added {install_dir} to PATH")
+        return True
+
+    except ImportError:
+        print_error("winreg module not available")
+        return False
+    except Exception as e:
+        print_error(f"Error adding to PATH on Windows: {e}")
+        return False
+
+
+def add_to_path_unix(install_dir):
+    """Add directory to PATH on Unix-like systems."""
+    shell = os.environ.get("SHELL", "/bin/bash")
+    home_dir = os.path.expanduser("~")
+
+    # Determine which shell config file to update
+    if "zsh" in shell:
+        config_files = [".zshrc", ".zprofile"]
+    elif "bash" in shell:
+        config_files = [".bashrc", ".bash_profile", ".profile"]
+    elif "fish" in shell:
+        config_files = [".config/fish/config.fish"]
+    else:
+        config_files = [".profile"]  # Fallback
+
+    # Try to find an existing config file
+    config_file = None
+    for cf in config_files:
+        full_path = os.path.join(home_dir, cf)
+        if os.path.exists(full_path):
+            config_file = full_path
+            break
+
+    # If no config file exists, create the first one in the list
+    if config_file is None:
+        config_file = os.path.join(home_dir, config_files[0])
+        # Create directory if needed (for fish config)
+        os.makedirs(os.path.dirname(config_file), exist_ok=True)
+
+    try:
+        # Check if PATH export already exists
+        path_export = f'export PATH="$PATH:{install_dir}"'
+
+        if os.path.exists(config_file):
+            with open(config_file, "r") as f:
+                content = f.read()
+                if install_dir in content:
+                    print_success(
+                        f"✅ {install_dir} is already in PATH (found in {config_file})"
+                    )
+                    return True
+
+        # Add PATH export to config file
+        with open(config_file, "a") as f:
+            f.write(f"\n# Added by Bugster CLI installer\n{path_export}\n")
+
+        print_success(f"✅ Added {install_dir} to PATH in {config_file}")
+        return True
+
+    except Exception as e:
+        print_error(f"Error adding to PATH: {e}")
+        return False
+
+
+def add_to_path(install_dir):
+    """Add installation directory to PATH."""
+    print_step("Adding installation directory to PATH...")
+
+    system = platform.system()
+
+    if system == "Windows":
+        return add_to_path_windows(install_dir)
+    else:
+        return add_to_path_unix(install_dir)
+
+
 def test_installation(executable_path, version):
     """Test the Bugster CLI installation."""
     print_step("Testing installation...")
@@ -349,17 +463,58 @@ def main():
         if not installed_path:
             sys.exit(1)
 
+        # Add to PATH (unless --no-path is specified)
+        install_dir = os.path.dirname(installed_path)
+        path_added = False
+        path_added = add_to_path(install_dir)
+
         # Test installation
         if not test_installation(installed_path, version):
             sys.exit(1)
 
         # Print installation success message
-        print_success("\nBugster CLI has been installed successfully!")
-        print_warning("\nMake sure the installation directory is in your PATH:")
-        if platform.system() == "Windows":
-            print(f"  {os.path.dirname(installed_path)}")
+        print_success("\n🎉 Bugster CLI has been installed successfully!")
+
+        if not path_added:
+            print_warning(f"\nNote: Installation directory was not added to PATH:")
+            print(f"  {install_dir}")
+            print("\nTo use Bugster CLI, either:")
+            print(f"  1. Add {install_dir} to your PATH manually")
+            print(f"  2. Run the full path: {installed_path}")
         else:
-            print("  ~/.local/bin")
+            # Show restart/source message only if PATH was actually modified
+            system = platform.system()
+            if system == "Windows":
+                print_warning(
+                    "\n⚠️  You may need to restart your terminal/command prompt for PATH changes to take effect"
+                )
+            else:
+                # Determine config file for Unix systems
+                shell = os.environ.get("SHELL", "/bin/bash")
+                home_dir = os.path.expanduser("~")
+                if "zsh" in shell:
+                    config_files = [".zshrc", ".zprofile"]
+                elif "bash" in shell:
+                    config_files = [".bashrc", ".bash_profile", ".profile"]
+                elif "fish" in shell:
+                    config_files = [".config/fish/config.fish"]
+                else:
+                    config_files = [".profile"]
+
+                config_file = None
+                for cf in config_files:
+                    full_path = os.path.join(home_dir, cf)
+                    if os.path.exists(full_path):
+                        config_file = full_path
+                        break
+
+                if config_file:
+                    print_warning("\n⚠️  You may need to restart your terminal or run:")
+                    print(f"    source {config_file}")
+                else:
+                    print_warning(
+                        "\n⚠️  You may need to restart your terminal for PATH changes to take effect"
+                    )
 
         print("\nTo start using Bugster CLI, run:")
         print("  bugster --help")
