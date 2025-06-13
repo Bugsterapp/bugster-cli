@@ -419,15 +419,6 @@ async def _execute_test_loop(
                 verbose,
                 test.name,
             )
-            # Los mensajes del WebSocket NO usan force_compact=True para que se filtren en modo compacto
-            print_parallel_safe(
-                test.name,
-                step_request.message,
-                "info",
-                max_concurrent,
-                verbose,
-                silent,
-            )
 
         elif message.get("action") == "complete":
             complete_message = WebSocketCompleteMessage(**message)
