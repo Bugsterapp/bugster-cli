@@ -17,8 +17,12 @@ from bugster.clients.mcp_client import MCPStdioClient
 from bugster.clients.ws_client import WebSocketClient
 from bugster.commands.middleware import require_api_key
 from bugster.commands.sync import get_current_branch
-from bugster.libs.services.run_limits_service import apply_test_limit, count_total_tests, get_test_limit_from_config
 from bugster.libs.services.results_stream_service import ResultsStreamService
+from bugster.libs.services.run_limits_service import (
+    apply_test_limit,
+    count_total_tests,
+    get_test_limit_from_config,
+)
 from bugster.libs.services.update_service import DetectAffectedSpecsService
 from bugster.types import (
     Config,
@@ -29,8 +33,9 @@ from bugster.types import (
     WebSocketStepRequestMessage,
     WebSocketStepResultMessage,
 )
-from bugster.utils.file import get_mcp_config_path, load_config, load_test_files
 from bugster.utils.console_messages import RunMessages
+from bugster.utils.file import get_mcp_config_path, load_config, load_test_files
+
 console = Console()
 # Color palette for parallel test execution
 TEST_COLORS = [
@@ -654,25 +659,35 @@ async def test_command(
         path = Path(test_path) if test_path else None
 
         if only_affected:
-            test_files = DetectAffectedSpecsService().run()
+            try:
+                test_files = DetectAffectedSpecsService().run()
+            except Exception as e:
+                RunMessages.error(
+                    f"Failed to detect affected specs: {e}. \nRunning all tests..."
+                )
+                test_files = load_test_files(path)
         else:
             test_files = load_test_files(path)
 
         if not test_files:
             RunMessages.no_tests_found()
             return
-        
+
         original_count = count_total_tests(test_files)
-        limited_test_files, folder_distribution = apply_test_limit(test_files, max_tests)
+        limited_test_files, folder_distribution = apply_test_limit(
+            test_files, max_tests
+        )
         selected_count = count_total_tests(limited_test_files)
         # Print test limit information if limiting was applied
         if int(original_count) > int(max_tests):
-            console.print(RunMessages.create_test_limit_panel(
-                original_count=original_count,
-                selected_count=selected_count,
-                max_tests=max_tests,
-                folder_distribution=folder_distribution
-            ))
+            console.print(
+                RunMessages.create_test_limit_panel(
+                    original_count=original_count,
+                    selected_count=selected_count,
+                    max_tests=max_tests,
+                    folder_distribution=folder_distribution,
+                )
+            )
 
         # Use the limited test files for execution
         test_files = limited_test_files
@@ -689,12 +704,12 @@ async def test_command(
         all_tests = []
         for test_file in test_files:
             if not silent:
-                RunMessages.running_test_file(test_file['file'])
+                RunMessages.running_test_file(test_file["file"])
 
             # Handle both single test object and list of test objects
             content = test_file["content"]
             if not isinstance(content, list):
-                RunMessages.invalid_test_file_format(test_file['file'])
+                RunMessages.invalid_test_file_format(test_file["file"])
                 continue
 
             for test_data in content:
@@ -710,7 +725,9 @@ async def test_command(
         semaphore = asyncio.Semaphore(max_concurrent)
 
         if not silent:
-            RunMessages.running_test_status(f"{len(all_tests)} tests", f"max {max_concurrent} concurrent")
+            RunMessages.running_test_status(
+                f"{len(all_tests)} tests", f"max {max_concurrent} concurrent"
+            )
 
         # Create thread pool executor for background operations
         with ThreadPoolExecutor(max_workers=5) as executor:
@@ -749,7 +766,9 @@ async def test_command(
             for i, result in enumerate(results):
                 if isinstance(result, Exception):
                     test_name = all_tests[i][0].name
-                    RunMessages.error(f"Test {test_name} failed with exception: {str(result)}")
+                    RunMessages.error(
+                        f"Test {test_name} failed with exception: {str(result)}"
+                    )
                     # Create a failed result for the exception
                     failed_result = NamedTestResult(
                         name=test_name,
