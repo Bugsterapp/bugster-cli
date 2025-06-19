@@ -20,7 +20,7 @@ console = Console()
 def analyze_command(options: dict = {}):
     """Run Bugster CLI analysis command."""
     force = options.get("force", False)
-    
+    page_filter = options.get("page_filter", None)
     try:
         if has_analysis_completed() and not force:
             console.print(
@@ -36,11 +36,13 @@ def analyze_command(options: dict = {}):
                 console.print("✅ Analysis completed!")
 
             with Status(" Generating test cases...", spinner="dots") as status:
-                TestCasesService().generate_test_cases()
+                TestCasesService().generate_test_cases(page_filter=page_filter)
                 status.stop()
                 console.print("🎉 Test cases generation completed!")
-
-            console.print(f"💾 Test cases saved to directory '{TESTS_DIR}'")
+            if page_filter:
+                console.print(f"💾 Test cases generated only for pages: {', '.join(page_filter)}")
+            else:
+                console.print(f"💾 Test cases saved to directory '{TESTS_DIR}'")
     except Exception as err:
         console.print(f"[red]Error: {str(err)}[/red]")
         raise typer.Exit(1)
