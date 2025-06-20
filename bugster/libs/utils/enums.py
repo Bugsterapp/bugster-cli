@@ -6,6 +6,7 @@ class BugsterApiPath(str, Enum):
 
     TEST_CASES = "/api/v1/test-cases"
     TEST_CASES_NEW = "/api/v1/test-cases/new"
+    TEST_CASES_JOB = "/api/v1/test-cases/jobs/{job_id}"
 
 
 class GitCommand(list, Enum):
