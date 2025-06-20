@@ -39,7 +39,7 @@ class LibsSettings(BaseSettings):
             if self.bugster_api_url == "api_url_placeholder":
                 self.bugster_api_url = "http://localhost:8000"
             if self.websocket_url == "websocket_url_placeholder":
-                self.websocket_url = "ws://localhost:8000/ws"
+                self.websocket_url = "ws://localhost:8765"
         elif self.environment == Environment.DEVELOPMENT:
             self.debug = True
             self.log_level = "INFO"
