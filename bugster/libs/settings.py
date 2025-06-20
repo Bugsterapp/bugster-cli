@@ -6,7 +6,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Environment(str, Enum):
-    LOCAL = "local"
+    LOCAL = "localhost"
     DEVELOPMENT = "development"
     PRODUCTION = "production"
 
@@ -16,29 +16,14 @@ class LibsSettings(BaseSettings):
 
     environment: Environment = Field(default=Environment.PRODUCTION)
 
-    # URLs por ambiente
-    _api_urls = {
-        Environment.LOCAL: "http://localhost:8000",
-        Environment.DEVELOPMENT: "https://dev.bugster.app",
-        Environment.PRODUCTION: "https://api.bugster.app",
-    }
+    # API Configuration
+    bugster_api_url: str = Field(default="api_url_placeholder")
+    websocket_url: str = Field(default="websocket_url_placeholder")
 
-    # WebSocket URLs por ambiente
-    _ws_urls = {
-        Environment.LOCAL: "ws://localhost:8765",
-        Environment.DEVELOPMENT: "wss://websocket.bugster.app/development",
-        Environment.PRODUCTION: "wss://websocket.bugster.app/production",
-    }
-
-    @property
-    def bugster_api_url(self) -> str:
-        """Return the API URL based on the environment."""
-        return self._api_urls[self.environment]
-
-    @property
-    def websocket_url(self) -> str:
-        """Return the WebSocket URL based on the environment."""
-        return self._ws_urls[self.environment]
+    # PostHog Analytics Configuration
+    posthog_api_key: str = Field(default="phc_api_key_placeholder")
+    posthog_host: str = Field(default="https://us.i.posthog.com")
+    posthog_enabled: bool = Field(default=True)
 
     # Configuraciones específicas por ambiente
     debug: bool = Field(default=False)
@@ -51,6 +36,10 @@ class LibsSettings(BaseSettings):
         if self.environment == Environment.LOCAL:
             self.debug = True
             self.log_level = "DEBUG"
+            if self.bugster_api_url == "api_url_placeholder":
+                self.bugster_api_url = "http://localhost:8000"
+            if self.websocket_url == "websocket_url_placeholder":
+                self.websocket_url = "ws://localhost:8000/ws"
         elif self.environment == Environment.DEVELOPMENT:
             self.debug = True
             self.log_level = "INFO"
@@ -59,7 +48,10 @@ class LibsSettings(BaseSettings):
             self.log_level = "WARNING"
 
     model_config = SettingsConfigDict(
-        env_file=".env", extra="ignore", env_prefix="BUGSTER_"
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore",
+        env_prefix="BUGSTER_",
     )
 
 

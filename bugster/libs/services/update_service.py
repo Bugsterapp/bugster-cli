@@ -10,9 +10,7 @@ from bugster.libs.mixins import (
 from bugster.libs.services.test_cases_service import TestCasesService
 from bugster.libs.utils.enums import GitCommand
 from bugster.libs.utils.git import parse_diff_status, run_git_command
-from bugster.libs.utils.nextjs.import_tree_generator import (
-    generate_and_save_import_tree,
-)
+from bugster.libs.utils.nextjs.import_tree_generator import generate_import_tree
 
 
 class UpdateService(ABC):
@@ -51,7 +49,7 @@ class UpdateService(ABC):
 
     def _get_import_tree(self) -> dict:
         """Get the import tree of the user's repository."""
-        return generate_and_save_import_tree()
+        return generate_import_tree()
 
     def _setup(self):
         """Setup the update service."""

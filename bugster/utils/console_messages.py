@@ -107,7 +107,7 @@ class InitMessages:
         console.print(f"\n🎉 [{BugsterColors.SUCCESS}]Project Initialized Successfully![/{BugsterColors.SUCCESS}]")
 
     @staticmethod
-    def create_project_summary_table(project_name, project_id, base_url, config_path, creds_count):
+    def create_project_summary_table(project_name, project_id, base_url, config_path):
         """Create and return project summary table."""
         table = Table(
             title="📋 Project Summary",
@@ -121,7 +121,6 @@ class InitMessages:
         table.add_row("Project ID", project_id)
         table.add_row("Base URL", base_url)
         table.add_row("Config Location", str(config_path))
-        table.add_row("Credentials", f"{creds_count} configured")
         
         return table
 
@@ -228,6 +227,38 @@ class AuthMessages:
         """Show authentication error message."""
         console.print(f"❌ [{BugsterColors.ERROR}]Error saving API key: {str(error)}[/{BugsterColors.ERROR}]")
 
+    @staticmethod
+    def create_analytics_panel():
+        """Create and return the analytics opt-in panel."""
+        return Panel(
+            f"[bold][{BugsterColors.TEXT_PRIMARY}]📊 Help Improve Bugster[/{BugsterColors.TEXT_PRIMARY}][/bold]\n\n"
+            f"Bugster collects anonymous usage analytics to help improve the CLI.\n\n"
+            f"[bold][{BugsterColors.SUCCESS}]✅ What we collect:[/{BugsterColors.SUCCESS}][/bold]\n"
+            f"• Command usage patterns\n"
+            f"• Error types and frequencies\n" 
+            f"• Performance metrics\n"
+            f"• Platform and environment info\n\n"
+            f"[bold][{BugsterColors.ERROR}]❌ What we DON'T collect:[/{BugsterColors.ERROR}][/bold]\n"
+            f"• Your code or file contents\n"
+            f"• Personal information\n"
+            f"• API keys or secrets\n"
+            f"• File paths or names\n\n"
+            f"[{BugsterColors.TEXT_DIM}]You can opt-out anytime by setting BUGSTER_ANALYTICS_DISABLED=true[/{BugsterColors.TEXT_DIM}]",
+            title="🛡️ Privacy & Analytics",
+            border_style=BugsterColors.INFO,
+            padding=(1, 2)
+        )
+    
+    @staticmethod
+    def analytics_enabled():
+        """Show analytics enabled message."""
+        console.print(f"✅ [{BugsterColors.SUCCESS}]Thank you! Analytics enabled to help improve Bugster.[/{BugsterColors.SUCCESS}]")
+    
+    @staticmethod
+    def analytics_disabled():
+        """Show analytics disabled message."""
+        console.print(f"✅ [{BugsterColors.INFO}]Analytics disabled. You can change this anytime.[/{BugsterColors.INFO}]")
+
 class CLIMessages:
     """Messages for the CLI commands."""
     
@@ -307,6 +338,11 @@ class CLIMessages:
     
     Keep your test cases in sync across team members and environments.
     Handles conflicts intelligently based on modification timestamps."""
+
+    @staticmethod
+    def get_upgrade_help():
+        """Get the help message for the upgrade command."""
+        return "Upgrade Bugster CLI to the latest version."
 
 class RunMessages:
     """Messages for the test command."""

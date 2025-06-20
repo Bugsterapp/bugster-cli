@@ -3,7 +3,8 @@ Login command implementation for Bugster CLI.
 """
 
 from rich.console import Console
-from rich.prompt import Prompt
+from rich.prompt import Prompt, Confirm
+from bugster.analytics import track_command, BugsterAnalytics
 from bugster.utils.user_config import save_api_key
 from bugster.utils.console_messages import AuthMessages
 import webbrowser
@@ -13,6 +14,7 @@ console = Console()
 DASHBOARD_URL = "https://gui.bugster.dev/"  # Update this with your actual dashboard URL
 API_KEY_HINT = "bugster_..."
 
+@track_command("auth")
 def auth_command():
     """Authenticate user with Bugster API key."""
     console.print()
@@ -50,11 +52,9 @@ def auth_command():
             ) == "n":
                 continue
         
-        # Test API key
         AuthMessages.validating_api_key()
         
-        # Add API key validation logic here
-        if validate_api_key(api_key):  # You'll need to implement this
+        if validate_api_key(api_key):  
             break
         else:
             AuthMessages.invalid_api_key_error()
@@ -66,6 +66,25 @@ def auth_command():
         AuthMessages.auth_success()
     except Exception as e:
         AuthMessages.auth_error(e)
+        raise
+
+    # Analytics opt-in/opt-out prompt (only if not already opted out)
+    if not BugsterAnalytics.is_opted_out():
+        analytics_panel = AuthMessages.create_analytics_panel()
+        console.print(analytics_panel)
+        console.print()
+        
+        enable_analytics = Confirm.ask(
+            f"🤔 Would you like to help improve Bugster by sharing anonymous usage analytics?", 
+            default=True
+        )
+        
+        if not enable_analytics:
+            BugsterAnalytics.create_opt_out_file()
+            AuthMessages.analytics_disabled()
+        else:
+            AuthMessages.analytics_enabled()
+        console.print()
 
 def validate_api_key(api_key: str) -> bool:
     """Validate API key by making a test request"""

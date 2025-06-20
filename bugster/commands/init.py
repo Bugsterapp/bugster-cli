@@ -11,6 +11,7 @@ from rich.console import Console
 from rich.table import Table
 import typer
 
+from bugster.analytics import track_command
 from bugster.constants import (
     CONFIG_PATH,
     TESTS_DIR,
@@ -84,7 +85,7 @@ def generate_project_id(project_name: str) -> str:
     safe_name = project_name.lower().replace(" ", "-")
     return f"{safe_name}-{timestamp}"
 
-
+@track_command("init")
 def init_command():
     """Initialize Bugster CLI configuration."""
     InitMessages.welcome()
@@ -194,7 +195,6 @@ def init_command():
         project_id,
         base_url,
         CONFIG_PATH,
-        len(credentials)
     )
     console.print()
     console.print(summary_table)

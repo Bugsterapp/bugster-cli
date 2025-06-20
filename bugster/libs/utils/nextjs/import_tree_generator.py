@@ -343,6 +343,7 @@ class ImportTreeGenerator:
                         skip in relative_path
                         for skip in [
                             "api/",
+                            "layout",
                             "_middleware",
                             ".config",
                             "_document",
@@ -399,8 +400,13 @@ class ImportTreeGenerator:
         logger.info("Import tree saved to {}", filename)
 
 
-def generate_and_save_import_tree() -> Dict:
+def generate_import_tree() -> Dict:
     """Generate the import tree for the project."""
+    return ImportTreeGenerator().generate_tree()
+
+
+def generate_and_save_import_tree() -> Dict:
+    """Generate and save locally the import tree for the project."""
     project_info = get_project_info()
     frameworks = project_info.get("data", {}).get("frameworks", [])
 

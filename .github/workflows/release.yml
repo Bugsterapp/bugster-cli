@@ -78,6 +78,12 @@ jobs:
           pip install pyinstaller
           pip install -e .
 
+      - name: Inject configuration
+        env:
+          POSTHOG_API_KEY: ${{ secrets.POSTHOG_API_KEY }}
+        run: |
+          python scripts/inject_config.py -env ${{ needs.validate.outputs.environment }}
+
       - name: Build executable
         run: |
           pyinstaller bugster.spec --clean

@@ -41,6 +41,7 @@ setup(
         "mdurl==0.1.2",
         "packaging==24.0",
         "pathspec==0.12.1",
+        "posthog==5.0.0",
         "pydantic==2.11.4",
         "pydantic-settings==2.9.1",
         "pydantic_core==2.33.2",
@@ -68,6 +69,7 @@ setup(
         "websockets==15.0.1",
         "yarl==1.20.0",
         "zipp==3.21.0",
+    
     ],
     entry_points={
         "console_scripts": [

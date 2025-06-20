@@ -1,6 +1,7 @@
 """Command-line interface for Bugster."""
 
 import asyncio
+import atexit
 import sys
 from typing import Optional
 
@@ -10,6 +11,7 @@ from rich.console import Console
 from loguru import logger
 
 from bugster import __version__
+from bugster.analytics import get_analytics
 from bugster.utils.console_messages import CLIMessages
 
 app = typer.Typer(
@@ -100,6 +102,8 @@ def main_callback(
     global _debug_enabled
     _debug_enabled = debug
     configure_logging(debug)
+    analytics = get_analytics()
+    atexit.register(analytics.flush)
 
 
 @app.command()
@@ -238,6 +242,45 @@ def sync(
     from bugster.commands.sync import sync_command
 
     sync_command(branch, pull, push, clean_remote, dry_run, prefer)
+
+
+@app.command(help=CLIMessages.get_upgrade_help())
+def upgrade(
+    yes: bool = typer.Option(
+        False,
+        "--yes",
+        "-y",
+        help="Automatically confirm the upgrade.",
+    ),
+):
+    """Upgrade Bugster CLI to the latest version."""
+    from bugster.commands.upgrade import upgrade_command
+
+    upgrade_command(yes=yes)
+    
+@app.command()
+def issues(
+    history: bool = typer.Option(
+        False,
+        "--history",
+        help="Get issues from the last week. If more than 10 issues are found, they will be saved to .bugster/issues directory"
+    ),
+    save: bool = typer.Option(
+        False,
+        "--save",
+        "-s",
+        help="Save issues to .bugster/issues directory"
+    ),
+    project_id: Optional[str] = typer.Option(
+        None,
+        "--project-id",
+        "-p",
+        help="Project ID (defaults to the one from config.yaml)"
+    )
+):
+    """[bold red]Get[/bold red] issues from your Bugster project."""
+    from bugster.commands.issues import issues_command
+    issues_command(history=history, save=save, project_id=project_id)
 
 
 def main():
