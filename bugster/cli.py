@@ -178,11 +178,20 @@ def _analyze_codebase(
         "--force",
         help="Force analysis even if the codebase has already been analyzed",
     ),
+    page: Optional[str] = typer.Option(
+        None,
+        "--page",
+        help="Generate specs only for specific pages (comma-separated). Example: --page=settings,auth,flows",
+    ),
+
 ):
     """Analyze your codebase and generate test specs."""
     from bugster.commands.analyze import analyze_command
+    page_filter = None
+    if page:
+        page_filter = [p.strip() for p in page.split(",") if p.strip()]
 
-    analyze_command(options={"show_logs": show_logs, "force": force})
+    analyze_command(options={"show_logs": show_logs, "force": force, "page_filter": page_filter})
 
 
 # Register the same function with two different command names

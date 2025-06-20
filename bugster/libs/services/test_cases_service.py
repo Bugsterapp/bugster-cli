@@ -2,7 +2,7 @@ import os
 import time
 from collections import OrderedDict
 from random import randint
-from typing import Any
+from typing import Any, List, Optional
 
 import yaml
 from loguru import logger
@@ -56,7 +56,7 @@ class TestCasesService:
         )
         self.analysis_json_path = os.path.join(cache_framework_dir, "analysis.json")
 
-    def _post_analysis_json(self) -> list[dict[Any, str]]:
+    def _post_analysis_json(self, page_filter: Optional[List[str]] = None ) -> list[dict[Any, str]]:
         """Post the `analysis.json` file to the API and receive the test cases."""
         logger.info("Posting analysis.json file to the API...")
         if not self.analysis_json_path:
@@ -69,10 +69,13 @@ class TestCasesService:
 
         with open(self.analysis_json_path, "rb") as file:
             files = {"file": ("analysis.json", file, "application/json")}
-
+            # Preparar datos adicionales para enviar el filtro
+            data = {}
+            if page_filter:
+                data["page_filter"] = ",".join(page_filter)
             with BugsterHTTPClient() as client:
                 return client.post(
-                    endpoint=BugsterApiPath.TEST_CASES.value, files=files
+                    endpoint=BugsterApiPath.TEST_CASES.value, files=files, data=data
                 )
 
     def _save_test_case_as_yaml(self, test_case: dict[Any, str]):
@@ -179,10 +182,10 @@ class TestCasesService:
             console.print("❌ Test generation timeout")
             return None
 
-    def generate_test_cases(self):
+    def generate_test_cases(self, page_filter: list[str] = None):
         """Generate test cases for the given codebase analysis."""
         self._set_analysis_json_path()
-        result = self._post_analysis_json()
+        result = self._post_analysis_json(page_filter=page_filter)
         test_cases = self._polling_test_cases(result=result)
 
         if not test_cases:
