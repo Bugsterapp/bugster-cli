@@ -182,7 +182,7 @@ def _analyze_codebase(
     """Analyze your codebase and generate test specs."""
     from bugster.commands.analyze import analyze_command
 
-    analyze_command(options={"show_logs": show_logs, "force": force})
+    analyze_command(options={"show_logs": show_logs, "force": force}, use_new_endpoints=True)
 
 
 # Register the same function with two different command names

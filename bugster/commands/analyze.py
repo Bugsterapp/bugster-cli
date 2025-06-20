@@ -19,7 +19,7 @@ console = Console()
 
 @require_api_key
 @track_command("generate")
-def analyze_command(options: dict = {}):
+def analyze_command(options: dict = {}, use_new_endpoints: bool = False):
     """Run Bugster CLI analysis command."""
     force = options.get("force", False)
 
@@ -37,7 +37,7 @@ def analyze_command(options: dict = {}):
                 status.stop()
                 console.print("✅ Analysis completed!")
 
-            TestCasesService().generate_test_cases()
+            TestCasesService().generate_test_cases(use_new_endpoints=use_new_endpoints)
             console.print()
             console.print("📁 Test cases saved to:")
             console.print(f"   {os.path.relpath(TESTS_DIR, WORKING_DIR)}")
