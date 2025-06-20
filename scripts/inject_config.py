@@ -28,11 +28,11 @@ def inject_configuration(settings_file_path: str, environment: str) -> None:
     url_mappings = {
         "development": {
             "api_url": "https://dev.bugster.app",
-            "websocket_url": "wss://websocket.bugster.app/development",
+            "websocket_url": "wss://websocket.bugster.app/development/",
         },
         "production": {
             "api_url": "https://api.bugster.app",
-            "websocket_url": "wss://websocket.bugster.app/production",
+            "websocket_url": "wss://websocket.bugster.app/production/",
         },
     }
 
