@@ -5,7 +5,8 @@ import time
 import uuid
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
-from typing import List, Optional
+from typing import Optional
+from urllib.parse import urlencode, urlparse, urlunparse
 
 import typer
 from loguru import logger
@@ -166,7 +167,7 @@ def initialize_streaming_service(
 def finalize_streaming_run(
     stream_service: Optional[ResultsStreamService],
     api_run_id: Optional[str],
-    results: List[NamedTestResult],
+    results: list[NamedTestResult],
     total_time: float,
 ):
     """Update final run status when streaming is enabled."""
@@ -185,7 +186,7 @@ def save_results_to_json(
     output: str,
     config: Config,
     run_id: str,
-    results: List[NamedTestResult],
+    results: list[NamedTestResult],
     total_time: float,
 ):
     """Save test results to JSON file."""
@@ -232,7 +233,7 @@ def get_video_path_for_test(video_dir: Path, test_name: str) -> Optional[Path]:
     return video_path if video_path.exists() else None
 
 
-def create_results_table(results: List[NamedTestResult]) -> Table:
+def create_results_table(results: list[NamedTestResult]) -> Table:
     """Create a formatted table with test results."""
     table = Table(title="Test Results")
     table.add_column("Name", justify="left")
@@ -632,6 +633,41 @@ async def execute_single_test_with_semaphore(
         )
 
 
+def apply_vercel_protection_bypass(config: Config) -> Config:
+    """Apply x-vercel-protection-bypass query parameter to base_url if present in config."""
+    if not config.x_vercel_protection_bypass:
+        return config
+
+    # Parse the URL
+    parsed_url = urlparse(config.base_url)
+
+    # Add the query parameter
+    query_params = {
+        "x-vercel-protection-bypass": config.x_vercel_protection_bypass,
+        "x-vercel-set-bypass-cookie": "true",
+    }
+
+    # Encode query parameters
+    encoded_params = urlencode(query_params)
+
+    # Reconstruct the URL with the query parameter
+    modified_url = urlunparse(
+        (
+            parsed_url.scheme,
+            parsed_url.netloc,
+            parsed_url.path,
+            parsed_url.params,
+            encoded_params,
+            parsed_url.fragment,
+        )
+    )
+
+    # Create a copy of the config with the modified base_url
+    config_dict = config.model_dump()
+    config_dict["base_url"] = modified_url
+    return Config(**config_dict)
+
+
 @require_api_key
 @track_command("run")
 async def test_command(
@@ -649,7 +685,6 @@ async def test_command(
     """Run Bugster tests."""
     total_start_time = time.time()
 
-
     try:
         # Load configuration and test files
         config = load_config()
@@ -658,6 +693,9 @@ async def test_command(
             # Override the base URL in the config
             # Used for CI/CD pipelines
             config.base_url = base_url
+
+        # Apply Vercel protection bypass query parameter if present
+        config = apply_vercel_protection_bypass(config)
 
         path = Path(test_path) if test_path else None
 

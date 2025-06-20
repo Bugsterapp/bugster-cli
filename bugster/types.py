@@ -1,6 +1,6 @@
 from typing import Literal, Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class TestMetadata(BaseModel):
@@ -27,6 +27,9 @@ class Config(BaseModel):
     credentials: list[Credential]
     project_id: str
     project_name: str
+    x_vercel_protection_bypass: Optional[str] = Field(
+        None, alias="x-vercel-protection-bypass"
+    )
 
 
 class WebSocketMessage(BaseModel):
