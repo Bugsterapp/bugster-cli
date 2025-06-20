@@ -26,8 +26,8 @@ class LibsSettings(BaseSettings):
     # WebSocket URLs por ambiente
     _ws_urls = {
         Environment.LOCAL: "ws://localhost:8765",
-        Environment.DEVELOPMENT: "wss://websocket.bugster.app/prod/",
-        Environment.PRODUCTION: "wss://websocket.bugster.app/prod/",
+        Environment.DEVELOPMENT: "wss://websocket.bugster.app/development",
+        Environment.PRODUCTION: "wss://websocket.bugster.app/production",
     }
 
     @property

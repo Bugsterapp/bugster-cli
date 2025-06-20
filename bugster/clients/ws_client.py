@@ -2,8 +2,9 @@
 
 import asyncio
 import json
+import os
 import ssl
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 import websockets
 from websockets.asyncio.client import ClientConnection
@@ -35,6 +36,8 @@ class WebSocketClient:
 
         # Add API key to headers
         additional_headers = {"X-API-Key": api_key}
+        if os.getenv("IS_GITHUB_APP"):
+            additional_headers["X-GitHub-App"] = "true"
 
         if self.url.startswith("wss"):
             self.ws = await websockets.connect(
@@ -58,13 +61,13 @@ class WebSocketClient:
             self.connected = False
             self.ws = None
 
-    async def send(self, data: Dict[str, Any]):
+    async def send(self, data: dict[str, Any]):
         """Send data to WebSocket server."""
         if not self.ws:
             raise RuntimeError("WebSocket not connected")
         await self.ws.send(json.dumps(data))
 
-    async def receive(self, timeout: Optional[float] = None) -> Dict[str, Any]:
+    async def receive(self, timeout: Optional[float] = None) -> dict[str, Any]:
         """Receive data from WebSocket server with optional timeout."""
         if not self.ws:
             raise RuntimeError("WebSocket not connected")
@@ -75,7 +78,7 @@ class WebSocketClient:
             except asyncio.TimeoutError:
                 raise asyncio.TimeoutError(
                     f"No message received within {timeout} seconds"
-                )
+                ) from None
         else:
             message = await self.ws.recv()
 

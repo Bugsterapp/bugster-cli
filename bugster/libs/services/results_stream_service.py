@@ -1,13 +1,13 @@
-"""
-Results streaming service for Bugster test execution.
-"""
+"""Results streaming service for Bugster test execution."""
 
+import os
 from pathlib import Path
+
 import requests
 
 from bugster.libs.settings import libs_settings
-from bugster.utils.user_config import get_api_key
 from bugster.utils.file import load_config
+from bugster.utils.user_config import get_api_key
 
 
 class ResultsStreamService:
@@ -25,8 +25,15 @@ class ResultsStreamService:
                 "API key is required. Please run 'bugster login' to set up your API key."
             )
 
+    def _get_headers(self) -> dict:
+        """Get headers for API requests."""
+        headers = {"X-API-Key": self.api_key}
+        if os.getenv("IS_GITHUB_APP"):
+            headers["X-GitHub-App"] = "true"
+        return headers
+
     def _get_project_id(self) -> str:
-        """Get project_id from config or use provided one"""
+        """Get project_id from config or use provided one."""
         if self.project_id:
             return self.project_id
 
@@ -42,7 +49,7 @@ class ResultsStreamService:
         project_id = self._get_project_id()
         response = requests.post(
             f"{self.base_url}/api/v1/runs",
-            headers={"X-API-Key": self.api_key},
+            headers=self._get_headers(),
             json={**run_data, "project_id": project_id},
         )
         response.raise_for_status()
@@ -52,7 +59,7 @@ class ResultsStreamService:
         """Update an existing test run."""
         response = requests.patch(
             f"{self.base_url}/api/v1/runs/{run_id}",
-            headers={"X-API-Key": self.api_key},
+            headers=self._get_headers(),
             json=run_data,
         )
         response.raise_for_status()
@@ -62,7 +69,7 @@ class ResultsStreamService:
         """Add a test case result to a run."""
         response = requests.post(
             f"{self.base_url}/api/v1/runs/{run_id}/test-cases",
-            headers={"X-API-Key": self.api_key},
+            headers=self._get_headers(),
             json=test_case_data,
         )
         response.raise_for_status()
@@ -96,9 +103,12 @@ class ResultsStreamService:
 
         try:
             # Step 1: Get presigned URL
+            headers = self._get_headers()
+            headers["Content-Type"] = "application/json"
+
             presigned_response = requests.post(
                 f"{self.base_url}/api/v1/videos/presigned-url",
-                headers={"X-API-Key": self.api_key, "Content-Type": "application/json"},
+                headers=headers,
                 json={"filename": video_path.name, "content_type": content_type},
             )
             presigned_response.raise_for_status()
@@ -124,7 +134,7 @@ class ResultsStreamService:
             # Step 3: Return the final URL where video will be accessible
             return presigned_data["final_url"]
 
-        except (OSError, IOError) as e:
+        except OSError as e:
             raise RuntimeError(f"Failed to read video file {video_path}: {e}") from e
 
     def update_test_case_with_video(
@@ -133,7 +143,7 @@ class ResultsStreamService:
         """Update test case with video URL."""
         response = requests.patch(
             f"{self.base_url}/api/v1/runs/{run_id}/test-cases/{test_case_id}",
-            headers={"X-API-Key": self.api_key},
+            headers=self._get_headers(),
             json={"video": video_url},
         )
         response.raise_for_status()
