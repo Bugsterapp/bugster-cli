@@ -213,3 +213,11 @@ jobs:
             - **Windows**: `bugster-windows.zip`
             - **macOS Intel (x86_64)**: `bugster-macos-intel.zip`
             - **macOS Apple Silicon (ARM64)**: `bugster-macos-arm64.zip`
+
+      - name: Repository Dispatch
+        if: needs.validate.outputs.environment == 'production'
+        uses: peter-evans/repository-dispatch@v3
+        with:
+          token: ${{ secrets.PAT }}
+          repository: Bugsterapp/bugster-api
+          event-type: bugster-cli-production-release
