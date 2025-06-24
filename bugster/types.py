@@ -77,3 +77,42 @@ class NamedTestResult(TestResult):
     name: str
     metadata: TestMetadata
     time: Optional[float] = None
+
+
+class Bug(BaseModel):
+    """Represents a bug found by a destructive agent."""
+
+    name: str
+    description: str
+
+
+class DestructiveResult(BaseModel):
+    """Result from a destructive agent execution."""
+
+    bugs: list[Bug]
+
+
+class WebSocketInitDestructiveMessage(WebSocketMessage):
+    """Initialize destructive agent message."""
+
+    action: Literal["init_destructive"] = "init_destructive"
+    page: str
+    diff: str
+    agent: str
+    config: Config
+
+
+class WebSocketDestructiveCompleteMessage(WebSocketMessage):
+    """Destructive agent completion message."""
+
+    action: Literal["destructive_complete"] = "destructive_complete"
+    result: DestructiveResult
+
+
+class NamedDestructiveResult(BaseModel):
+    """Named destructive result with additional metadata."""
+
+    page: str
+    agent: str
+    result: DestructiveResult
+    time: float = 0

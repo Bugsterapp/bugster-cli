@@ -7,8 +7,8 @@ from typing import Optional
 
 import click
 import typer
-from rich.console import Console
 from loguru import logger
+from rich.console import Console
 
 from bugster import __version__
 from bugster.analytics import get_analytics
@@ -257,30 +257,53 @@ def upgrade(
     from bugster.commands.upgrade import upgrade_command
 
     upgrade_command(yes=yes)
-    
+
+
 @app.command()
 def issues(
     history: bool = typer.Option(
         False,
         "--history",
-        help="Get issues from the last week. If more than 10 issues are found, they will be saved to .bugster/issues directory"
+        help="Get issues from the last week. If more than 10 issues are found, they will be saved to .bugster/issues directory",  # noqa: E501
     ),
     save: bool = typer.Option(
-        False,
-        "--save",
-        "-s",
-        help="Save issues to .bugster/issues directory"
+        False, "--save", "-s", help="Save issues to .bugster/issues directory"
     ),
     project_id: Optional[str] = typer.Option(
         None,
         "--project-id",
         "-p",
-        help="Project ID (defaults to the one from config.yaml)"
-    )
+        help="Project ID (defaults to the one from config.yaml)",
+    ),
 ):
     """[bold red]Get[/bold red] issues from your Bugster project."""
     from bugster.commands.issues import issues_command
+
     issues_command(history=history, save=save, project_id=project_id)
+
+
+@app.command(help=CLIMessages.get_destructive_help())
+def destructive(
+    headless: bool = typer.Option(False, help="Run agents in headless mode"),
+    silent: bool = typer.Option(False, help="Run agents silently"),
+    base_url: Optional[str] = typer.Option(None, help="Override base URL from config"),
+    max_concurrent: Optional[int] = typer.Option(
+        None, help="Maximum number of concurrent agents (default: 3)"
+    ),
+    verbose: bool = typer.Option(False, help="Show detailed agent execution logs"),
+):
+    """Run destructive agents to find potential bugs in changed pages."""
+    from bugster.commands.destructive import destructive_command
+
+    asyncio.run(
+        destructive_command(
+            headless,
+            silent,
+            base_url,
+            max_concurrent,
+            verbose,
+        )
+    )
 
 
 def main():

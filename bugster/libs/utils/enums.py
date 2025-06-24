@@ -8,6 +8,7 @@ class BugsterApiPath(str, Enum):
     TEST_CASES_NEW = "/api/v1/test-cases/new"
     GENERATE_INIT = "/generate/init"
     GENERATE_CHECK_RESULTS = "/generate/check-results"
+    DESTRUCTIVE_AGENTS = "/api/v1/destructive/agents"
 
 
 class GitCommand(list, Enum):
@@ -21,7 +22,7 @@ class GitCommand(list, Enum):
     - DIFF_BRANCH_HEAD: Get the changed content between the current branch and the target branch.
     - DIFF_CACHED: Get the changed content of the modified or deleted *STAGED* files.
     - RESET: Remove all intent-to-add files.
-    """
+    """  # noqa: E501
 
     CURRENT_BRANCH = ["git", "rev-parse", "--abbrev-ref", "HEAD"]
     DIFF_STATUS_PORCELAIN = [
