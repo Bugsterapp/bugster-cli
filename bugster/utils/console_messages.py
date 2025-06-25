@@ -755,3 +755,31 @@ class DestructiveMessages:
         console.print(
             f"[{BugsterColors.ERROR}]Error: {message}[/{BugsterColors.ERROR}]"
         )
+
+    @staticmethod
+    def streaming_results_to_run(run_id):
+        """Show streaming results message."""
+        console.print(
+            f"[{BugsterColors.INFO}]Streaming destructive results to run: {run_id}[/{BugsterColors.INFO}]"
+        )
+
+    @staticmethod
+    def streaming_warning(agent_info, error):
+        """Show streaming warning message."""
+        console.print(
+            f"[{BugsterColors.WARNING}]Warning: Failed to stream result for {agent_info}: {str(error)}[/{BugsterColors.WARNING}]"
+        )
+
+    @staticmethod
+    def streaming_init_warning(error):
+        """Show streaming initialization warning message."""
+        console.print(
+            f"[{BugsterColors.WARNING}]Warning: Failed to initialize destructive streaming service: {str(error)}[/{BugsterColors.WARNING}]"
+        )
+
+    @staticmethod
+    def updating_final_status():
+        """Show updating final status message."""
+        console.print(
+            f"[{BugsterColors.INFO}]Updating final destructive run status...[/{BugsterColors.INFO}]"
+        )

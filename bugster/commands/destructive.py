@@ -3,6 +3,7 @@ import hashlib
 import time
 import uuid
 from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
 from typing import Optional
 
 import typer
@@ -15,10 +16,13 @@ from bugster.analytics import track_command
 from bugster.clients.mcp_client import MCPStdioClient
 from bugster.clients.ws_client import WebSocketClient
 from bugster.commands.middleware import require_api_key
+from bugster.commands.sync import get_current_branch
 from bugster.libs.services.destructive_service import DestructiveService
+from bugster.libs.services.destructive_stream_service import DestructiveStreamService
 from bugster.types import (
     Config,
     NamedDestructiveResult,
+    NamedDestructiveResultWithVideo,
     WebSocketDestructiveCompleteMessage,
     WebSocketInitDestructiveMessage,
     WebSocketStepRequestMessage,
@@ -395,45 +399,104 @@ async def execute_single_destructive_agent_with_semaphore(
     diff: str,
     config: Config,
     agent_executor_kwargs: dict,
+    stream_service: Optional[DestructiveStreamService],
+    api_run_id: Optional[str],
+    run_id: str,
+    executor: ThreadPoolExecutor,
     silent: bool = False,
 ) -> NamedDestructiveResult:
     """Execute a single destructive agent with semaphore for concurrency control."""
     async with semaphore:
-        max_concurrent = agent_executor_kwargs.get("max_concurrent", 1)
-        verbose = agent_executor_kwargs.get("verbose", False)
-
-        print_parallel_safe(
-            agent,
+        return await execute_single_destructive_agent(
             page,
-            "Starting destructive agent",
-            "info",
-            max_concurrent,
-            verbose,
-            silent,
-            force_compact=True,
-        )
-
-        agent_start_time = time.time()
-        result = await execute_destructive_agent(
-            page, agent, diff, config, **agent_executor_kwargs
-        )
-        agent_elapsed_time = time.time() - agent_start_time
-
-        # Add elapsed time to result
-        result.time = agent_elapsed_time
-
-        print_parallel_safe(
             agent,
-            page,
-            f"Finished: {len(result.result.bugs)} bugs found (Time: {agent_elapsed_time:.2f}s)",  # noqa: E501
-            "success" if len(result.result.bugs) == 0 else "warning",
-            max_concurrent,
-            verbose,
+            diff,
+            config,
+            agent_executor_kwargs,
+            stream_service,
+            api_run_id,
+            run_id,
+            executor,
             silent,
-            force_compact=True,
         )
 
-        return result
+
+async def execute_single_destructive_agent(
+    page: str,
+    agent: str,
+    diff: str,
+    config: Config,
+    agent_executor_kwargs: dict,
+    stream_service: Optional[DestructiveStreamService],
+    api_run_id: Optional[str],
+    run_id: str,
+    executor: ThreadPoolExecutor,
+    silent: bool = False,
+) -> NamedDestructiveResult:
+    """Execute a single destructive agent and handle streaming."""
+    max_concurrent = agent_executor_kwargs.get("max_concurrent", 1)
+    verbose = agent_executor_kwargs.get("verbose", False)
+
+    print_parallel_safe(
+        agent,
+        page,
+        "Starting destructive agent",
+        "info",
+        max_concurrent,
+        verbose,
+        silent,
+        force_compact=True,
+    )
+
+    agent_start_time = time.time()
+    result = await execute_destructive_agent(
+        page, agent, diff, config, **agent_executor_kwargs
+    )
+    agent_elapsed_time = time.time() - agent_start_time
+
+    # Add elapsed time to result
+    result.time = agent_elapsed_time
+
+    print_parallel_safe(
+        agent,
+        page,
+        f"Finished: {len(result.result.bugs)} bugs found (Time: {agent_elapsed_time:.2f}s)",
+        "success" if len(result.result.bugs) == 0 else "warning",
+        max_concurrent,
+        verbose,
+        silent,
+        force_compact=True,
+    )
+
+    # Rename the video to include agent and page info
+    video_dir = Path(".bugster/videos/destructive") / run_id / f"{agent}_{page}"
+    rename_destructive_video(video_dir, agent, page)
+
+    # Stream result if enabled (in background)
+    if stream_service and api_run_id:
+        session_id = str(uuid.uuid4())
+
+        # Create result with video info
+        result_with_video = NamedDestructiveResultWithVideo(
+            page=result.page,
+            agent=result.agent,
+            result=result.result,
+            time=result.time,
+            session_id=session_id,
+        )
+
+        video_path = get_video_path_for_destructive_agent(video_dir, agent, page)
+
+        # Submit session creation and video upload to thread pool
+        executor.submit(
+            handle_destructive_result_streaming,
+            stream_service,
+            api_run_id,
+            result_with_video,
+            video_path,
+        )
+
+    return result
 
 
 def create_destructive_results_table(results: list[NamedDestructiveResult]) -> Table:
@@ -462,6 +525,7 @@ def create_destructive_results_table(results: list[NamedDestructiveResult]) -> T
 async def destructive_command(
     headless: Optional[bool] = False,
     silent: Optional[bool] = False,
+    stream_results: Optional[bool] = False,
     base_url: Optional[str] = None,
     max_concurrent: Optional[int] = None,
     verbose: Optional[bool] = False,
@@ -506,13 +570,21 @@ async def destructive_command(
         semaphore = asyncio.Semaphore(max_concurrent)
         run_id = str(uuid.uuid4())
 
+        # Initialize streaming service if requested
+        stream_service, api_run_id = None, None
+        if stream_results:
+            stream_service, api_run_id = initialize_destructive_streaming_service(
+                config, run_id, silent
+            )
+
         if not silent:
             DestructiveMessages.running_agents_status(
                 len(all_agent_tasks), max_concurrent
             )
 
-        # Execute all agents concurrently
-        with ThreadPoolExecutor(max_workers=5):
+        # Create thread pool executor for background operations
+        with ThreadPoolExecutor(max_workers=5) as executor:
+            # Execute all agents concurrently
             tasks = []
             for page, agent, diff in all_agent_tasks:
                 agent_executor_kwargs = {
@@ -530,6 +602,10 @@ async def destructive_command(
                     diff,
                     config,
                     agent_executor_kwargs,
+                    stream_service,
+                    api_run_id,
+                    run_id,
+                    executor,
                     silent,
                 )
                 tasks.append(task)
@@ -545,7 +621,7 @@ async def destructive_command(
                 if isinstance(result, Exception):
                     page, agent, _ = all_agent_tasks[i]
                     DestructiveMessages.error(
-                        f"Agent {agent} for page {page} failed with exception: {str(result)}"  # noqa: E501
+                        f"Agent {agent} for page {page} failed with exception: {str(result)}"
                     )
                     # Create a failed result for the exception
                     from bugster.types import Bug, DestructiveResult
@@ -567,6 +643,9 @@ async def destructive_command(
                 else:
                     final_results.append(result)
 
+            if stream_results:
+                DestructiveMessages.updating_final_status()
+
         # Display results table
         if not silent:
             console.print(create_destructive_results_table(final_results))
@@ -584,6 +663,11 @@ async def destructive_command(
                 final_results, total_bugs, total_time
             )
 
+        # Update final destructive run status if streaming
+        finalize_destructive_streaming_run(
+            stream_service, api_run_id, final_results, total_time
+        )
+
         # Exit with code 1 if bugs were found
         if total_bugs > 0:
             raise typer.Exit(1)
@@ -594,3 +678,119 @@ async def destructive_command(
     except Exception as e:
         DestructiveMessages.error(e)
         raise typer.Exit(1) from None
+
+
+def handle_destructive_result_streaming(
+    stream_service: DestructiveStreamService,
+    api_run_id: str,
+    result: NamedDestructiveResultWithVideo,
+    video_path: Optional[Path],
+):
+    """Handle streaming of destructive result and video upload in background."""
+    try:
+        session_data = {
+            "id": result.session_id,
+            "page": result.page,
+            "agent": result.agent,
+            "bugs": [
+                {"name": bug.name, "description": bug.description}
+                for bug in result.result.bugs
+            ],
+            "time": result.time,
+        }
+
+        # Add destructive session to run
+        stream_service.add_destructive_session(api_run_id, session_data)
+
+        # Upload video if it exists
+        if video_path and video_path.exists():
+            video_url = stream_service.upload_video(video_path)
+            if video_url:
+                stream_service.update_destructive_session_with_video(
+                    api_run_id, result.session_id, video_url
+                )
+
+    except Exception as e:
+        DestructiveMessages.streaming_warning(f"{result.agent}|{result.page}", e)
+
+
+def initialize_destructive_streaming_service(
+    config: Config, run_id: str, silent: bool = False
+) -> tuple[Optional[DestructiveStreamService], Optional[str]]:
+    """Initialize the destructive streaming service and create initial run record."""
+    try:
+        stream_service = DestructiveStreamService()
+        branch = get_current_branch()
+
+        # Create initial destructive run record
+        run_data = {
+            "id": run_id,
+            "base_url": config.base_url,
+            "branch": branch,
+            "bugs_count": 0,
+            "time": 0,
+            "destructive_sessions": [],
+        }
+        api_run = stream_service.create_destructive_run(run_data)
+        api_run_id = api_run.get("id", run_id)
+
+        if not silent:
+            DestructiveMessages.streaming_results_to_run(api_run_id)
+
+        return stream_service, api_run_id
+    except Exception as e:
+        DestructiveMessages.streaming_init_warning(e)
+        return None, None
+
+
+def finalize_destructive_streaming_run(
+    stream_service: Optional[DestructiveStreamService],
+    api_run_id: Optional[str],
+    results: list[NamedDestructiveResult],
+    total_time: float,
+):
+    """Update final destructive run status when streaming is enabled."""
+    if not stream_service or not api_run_id:
+        return
+
+    try:
+        total_bugs = sum(len(r.result.bugs) for r in results)
+        final_run_data = {"bugs_count": total_bugs, "time": total_time}
+        stream_service.update_destructive_run(api_run_id, final_run_data)
+    except Exception as e:
+        DestructiveMessages.streaming_init_warning(e)
+
+
+def get_video_path_for_destructive_agent(
+    video_dir: Path, agent: str, page: str
+) -> Optional[Path]:
+    """Get the video path for a destructive agent execution."""
+    if not video_dir.exists():
+        return None
+
+    # Look for video files with the agent_page pattern
+    video_files = list(video_dir.glob("*.webm")) + list(video_dir.glob("*.mp4"))
+    if video_files:
+        return video_files[0]  # Return the first video found
+    return None
+
+
+def rename_destructive_video(video_dir: Path, agent: str, page: str) -> None:
+    """Rename the video file to include agent and page info."""
+    if not video_dir.exists():
+        return
+
+    video_files = list(video_dir.glob("*.webm")) + list(video_dir.glob("*.mp4"))
+    if video_files:
+        original_video = video_files[0]
+        clean_agent = "".join(c for c in agent if c.isalnum() or c in "-_")
+        clean_page = "".join(c for c in page if c.isalnum() or c in "-_")
+        new_name = f"{clean_agent}_{clean_page}{original_video.suffix}"
+        new_path = video_dir / new_name
+
+        try:
+            original_video.rename(new_path)
+        except OSError as e:
+            logger.warning(
+                f"Failed to rename video from {original_video} to {new_path}: {e}"
+            )

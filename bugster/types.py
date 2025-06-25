@@ -116,3 +116,11 @@ class NamedDestructiveResult(BaseModel):
     agent: str
     result: DestructiveResult
     time: float = 0
+
+
+# New types for destructive streaming
+class NamedDestructiveResultWithVideo(NamedDestructiveResult):
+    """Destructive result with video for streaming."""
+
+    session_id: str  # Unique identifier for this session (page + agent)
+    video_url: Optional[str] = None

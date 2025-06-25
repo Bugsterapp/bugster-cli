@@ -286,6 +286,9 @@ def issues(
 def destructive(
     headless: bool = typer.Option(False, help="Run agents in headless mode"),
     silent: bool = typer.Option(False, help="Run agents silently"),
+    stream_results: bool = typer.Option(
+        False, "--stream-results", help="Stream destructive results as they complete"
+    ),
     base_url: Optional[str] = typer.Option(None, help="Override base URL from config"),
     max_concurrent: Optional[int] = typer.Option(
         None, help="Maximum number of concurrent agents (default: 3)"
@@ -299,6 +302,7 @@ def destructive(
         destructive_command(
             headless,
             silent,
+            stream_results,
             base_url,
             max_concurrent,
             verbose,
