@@ -151,18 +151,18 @@ def issues_command(
                 table.add_column("Status", style="yellow")
                 table.add_column("Test Reason", style="blue", no_wrap=False)
                 
-                # Get the first test case info
-                test_case = issue["test_cases"][0] if issue["test_cases"] else {}
-                test_name = test_case.get("name", "N/A")
-                reason = test_case.get("reason", "No reason provided")
-                status = test_case.get("result", "unknown")
-                
-                table.add_row(
-                    test_name,
-                    issue["created_at"].split("T")[0] if "T" in issue["created_at"] else issue["created_at"],
-                    status,
-                    reason
-                )
+                # Display all test cases from the issue
+                for test_case in issue["test_cases"]:
+                    test_name = test_case.get("name", "N/A")
+                    reason = test_case.get("reason", "No reason provided")
+                    status = test_case.get("result", "unknown")
+                    
+                    table.add_row(
+                        test_name,
+                        issue["created_at"].split("T")[0] if "T" in issue["created_at"] else issue["created_at"],
+                        status,
+                        reason
+                    )
                 
                 console.print(table)
                 

@@ -624,22 +624,67 @@ class RunMessages:
 
     @staticmethod
     def create_test_limit_panel(
-        original_count, selected_count, max_tests, folder_distribution
+        original_count: int,
+        selected_count: int,
+        max_tests: int,
+        folder_distribution: dict,
+        always_run_count: int = 0,
+        always_run_distribution: dict = None,
     ):
-        """Create test limit information panel."""
-        panel_content = f"""
-[bold][{BugsterColors.WARNING}]Test Limit Applied[/{BugsterColors.WARNING}][/bold]
+        """Create a panel showing test limit information."""
+        content = []
 
-📋 Total tests found: {original_count}
-🎯 Tests selected: {selected_count} (limit: {max_tests})
+        if selected_count < original_count:
+            # Update title to show always-run breakdown
+            if always_run_count > 0:
+                total_running = selected_count + always_run_count
+                total_limit = max_tests + always_run_count
+                content.append(
+                    f"[bold]Test limit applied:[/bold] Running {selected_count} + {always_run_count} (Always-run) out of {original_count} tests (limit: {max_tests} + {always_run_count})"
+                )
+            else:
+                content.append(
+                    f"[bold]Test limit applied:[/bold] Running {selected_count} out of {original_count} tests (limit: {max_tests})"
+                )
 
-[bold]Distribution by folder:[/bold]
-"""
-        for folder, count in folder_distribution.items():
-            folder_display = folder if folder else "(root)"
-            panel_content += f"  📁 {folder_display}: {count} tests\n"
+            content.append("")  # Empty line for spacing
+            content.append("[bold]Distribution by folder:[/bold]")
 
-        return Panel(panel_content.strip(), border_style=BugsterColors.WARNING)
+            # Add folder distribution
+            for folder, count in sorted(folder_distribution.items()):
+                content.append(
+                    f"📁 [{BugsterColors.TEXT_DIM}]{folder}[/{BugsterColors.TEXT_DIM}]"
+                )
+                content.append(
+                    f"   ▸ [{BugsterColors.TEXT_PRIMARY}]{count} tests[/{BugsterColors.TEXT_PRIMARY}]"
+                )
+
+            # Add always-run tests if any
+            if always_run_count > 0:
+                content.append("")  # Empty line for spacing
+                content.append(
+                    f"🎯 [{BugsterColors.TEXT_DIM}]Always-run tests[/{BugsterColors.TEXT_DIM}]"
+                )
+                if always_run_distribution:
+                    for folder, count in sorted(always_run_distribution.items()):
+                        content.append(
+                            f"   📁 [{BugsterColors.TEXT_DIM}]{folder}[/{BugsterColors.TEXT_DIM}]"
+                        )
+                        content.append(
+                            f"      ▸ [{BugsterColors.TEXT_PRIMARY}]{count} tests[/{BugsterColors.TEXT_PRIMARY}]"
+                        )
+                else:
+                    content.append(
+                        f"   ▸ [{BugsterColors.TEXT_PRIMARY}]{always_run_count} tests[/{BugsterColors.TEXT_PRIMARY}] (additional to limit)"
+                    )
+
+        panel_content = "\n".join(content)
+        return Panel(
+            panel_content,
+            title="⚠️  Test Limit Applied",
+            border_style=BugsterColors.WARNING,
+            padding=(1, 2),
+        )
 
 
 class DestructiveMessages:
