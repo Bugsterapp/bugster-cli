@@ -727,6 +727,7 @@ def initialize_destructive_streaming_service(
             "id": run_id,
             "base_url": config.base_url,
             "branch": branch,
+            "status": "running",
             "bugs_count": 0,
             "time": 0,
             "destructive_sessions": [],
@@ -755,7 +756,11 @@ def finalize_destructive_streaming_run(
 
     try:
         total_bugs = sum(len(r.result.bugs) for r in results)
-        final_run_data = {"bugs_count": total_bugs, "time": total_time}
+        final_run_data = {
+            "bugs_count": total_bugs,
+            "time": total_time,
+            "status": "completed",
+        }
         stream_service.update_destructive_run(api_run_id, final_run_data)
     except Exception as e:
         DestructiveMessages.streaming_init_warning(e)
