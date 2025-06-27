@@ -13,6 +13,7 @@ from bugster.analyzer.utils.analysis_tracker import (
 from bugster.commands.middleware import require_api_key
 from bugster.constants import TESTS_DIR, WORKING_DIR
 from bugster.libs.services.test_cases_service import TestCasesService
+from bugster.utils.console_messages import AnalyzeMessages
 
 console = Console()
 
@@ -26,28 +27,29 @@ def analyze_command(options: dict = {}):
     count = options.get("count", None)
     try:
         if has_analysis_completed() and not force:
-            console.print(
-                "🔒 The codebase has already been analyzed and cannot be run again"
-            )
+            AnalyzeMessages.analysis_already_completed()
             return
         with analysis_tracker():
-            console.print("🔍 Starting analysis...")
+            AnalyzeMessages.starting_analysis()
 
-            with Status(" Analyzing codebase...", spinner="dots") as status:
+            with Status(
+                AnalyzeMessages.analyzing_codebase_status(), spinner="dots"
+            ) as status:
                 analyze_codebase(options=options)
                 status.stop()
-                console.print("✅ Analysis completed!")
+                AnalyzeMessages.analysis_completed()
             TestCasesService().generate_test_cases(page_filter=page_filter, count=count)
             console.print()
+
+            path = os.path.relpath(TESTS_DIR, WORKING_DIR)
             if page_filter:
-                console.print(f"📁 Test specs generated only for files:")
+                AnalyzeMessages.specs_generated_for_files()
                 for file_path in page_filter:
-                    console.print(f"   {file_path}")
-                console.print(f"\nSpecs saved to:")
-                console.print(f"   {os.path.relpath(TESTS_DIR, WORKING_DIR)}")
+                    AnalyzeMessages.print_file_path(file_path)
+                AnalyzeMessages.specs_saved_to(path)
             else:
-                console.print("📁 Test specs saved to:")
-                console.print(f"   {os.path.relpath(TESTS_DIR, WORKING_DIR)}")
+                AnalyzeMessages.generic_specs_saved_to(path)
+
     except Exception as err:
-        console.print(f"[red]Error: {str(err)}[/red]")
+        AnalyzeMessages.error(str(err))
         raise typer.Exit(1)
