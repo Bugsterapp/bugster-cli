@@ -459,10 +459,6 @@ else
     fi
 fi
 
-print_step "Installing Playwright..."
-npx -y @playwright/mcp@latest --version
-npx -y playwright@1.53.0 install --with-deps chrome
-
 # Download and run the Python installer script with version argument
 print_step "Downloading the Bugster CLI installer..."
 
@@ -476,19 +472,15 @@ fi
 print_step "Using Python: $PYTHON_PATH"
 
 if [[ "$VERSION" == "latest" ]]; then
-    curl -sSL https://raw.githubusercontent.com/Bugsterapp/bugster-cli/main/scripts/install.py | "$PYTHON_PATH"
+    curl -sSL https://raw.githubusercontent.com/Bugsterapp/bugster-cli/vicente/initWarnings/scripts/install.py | "$PYTHON_PATH"
 else
-    curl -sSL https://raw.githubusercontent.com/Bugsterapp/bugster-cli/main/scripts/install.py | "$PYTHON_PATH" - -v "$VERSION"
+    curl -sSL https://raw.githubusercontent.com/Bugsterapp/bugster-cli/vicente/initWarnings/scripts/install.py | "$PYTHON_PATH" - -v "$VERSION"
 fi
 
 exit_code=$?
-if [[ $exit_code -eq 0 ]]; then
-    # Show shell reload instructions
-    shell=${SHELL##*/}
-    config_file="$HOME/.${shell}rc"
-    print_warning "Please restart your terminal or run:"
-    echo -e "${BLUE}source $config_file${NC}"
-    echo -e "\nTo use Bugster CLI, run: ${GREEN}bugster --help${NC}"
+if [[ $exit_code -ne 0 ]]; then
+    print_error "❌ Installation failed"
+    exit $exit_code
 fi
 
 exit $exit_code 

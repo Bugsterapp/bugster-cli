@@ -476,20 +476,73 @@ def main():
 
         # Print installation success message
         print_success("\n🎉 Bugster CLI has been installed successfully!")
+        
+        # Check if we're in an interactive environment
+        import sys
+        is_interactive = sys.stdin.isatty()
+        
+        if is_interactive:
+            # Only ask for terminal reset if we're in an interactive environment
+            print_warning("\nWould you like to reset your terminal? (y/n)")
+            try:
+                choice = input().strip().lower()
+                
+                if choice in ["y", "yes"]:
+                    print_step("Resetting terminal...")
+                    print("\nTo start using Bugster CLI, run:")
+                    print("  bugster --help")
+                    import signal
+                    system = platform.system()
+                    if system == "Windows":
+                        # On Windows, just exit gracefully
+                        print_warning("Please restart your command prompt manually.")
+                        sys.exit(0)
+                    else:
+                        # On Unix systems, kill the parent process
+                        os.kill(os.getppid(), signal.SIGKILL)
+                else:
+                    # Show restart instructions only if user chose not to reset
+                    print("\nTo start using Bugster CLI, restart terminal and run:")
+                    print("  bugster --help")
+                    system = platform.system()
+                    if system == "Windows":
+                        print_warning("\nPlease restart your terminal to use Bugster CLI.")
+                    else:
+                        # Determine config file for Unix systems
+                        shell = os.environ.get("SHELL", "/bin/bash")
+                        home_dir = os.path.expanduser("~")
+                        if "zsh" in shell:
+                            config_files = [".zshrc", ".zprofile"]
+                        elif "bash" in shell:
+                            config_files = [".bashrc", ".bash_profile", ".profile"]
+                        elif "fish" in shell:
+                            config_files = [".config/fish/config.fish"]
+                        else:
+                            config_files = [".profile"]
 
-        if not path_added:
-            print_warning(f"\nNote: Installation directory was not added to PATH:")
-            print(f"  {install_dir}")
-            print("\nTo use Bugster CLI, either:")
-            print(f"  1. Add {install_dir} to your PATH manually")
-            print(f"  2. Run the full path: {installed_path}")
+                        config_file = None
+                        for cf in config_files:
+                            full_path = os.path.join(home_dir, cf)
+                            if os.path.exists(full_path):
+                                config_file = full_path
+                                break
+
+                        if config_file:
+                            print_warning(f"\nPlease restart your terminal to use Bugster CLI or run:")
+                            print(f"    source {config_file}")
+                        else:
+                            print_warning("\nPlease restart your terminal to use Bugster CLI.")
+            except (EOFError, KeyboardInterrupt):
+                # Handle non-interactive environments gracefully
+                print("\nTo start using Bugster CLI, restart terminal and run:")
+                print("  bugster --help")
         else:
-            # Show restart/source message only if PATH was actually modified
+            # Non-interactive environment (like curl), just show instructions
+            print("\nTo start using Bugster CLI, restart terminal and run:")
+            print("  bugster --help")
             system = platform.system()
             if system == "Windows":
-                print_warning(
-                    "\n⚠️  You may need to restart your terminal/command prompt for PATH changes to take effect"
-                )
+                print_warning("\nPlease restart your terminal to use Bugster CLI.")
             else:
                 # Determine config file for Unix systems
                 shell = os.environ.get("SHELL", "/bin/bash")
@@ -511,15 +564,10 @@ def main():
                         break
 
                 if config_file:
-                    print_warning("\n⚠️  You may need to restart your terminal or run:")
+                    print_warning(f"\nPlease restart your terminal to use Bugster CLI or run:")
                     print(f"    source {config_file}")
                 else:
-                    print_warning(
-                        "\n⚠️  You may need to restart your terminal for PATH changes to take effect"
-                    )
-
-        print("\nTo start using Bugster CLI, run:")
-        print("  bugster --help")
+                    print_warning("\nPlease restart your terminal to use Bugster CLI.")
 
     finally:
         # Clean up

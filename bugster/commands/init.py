@@ -150,19 +150,15 @@ def init_command():
     credentials = []
 
     if Prompt.ask("➕ Would you like to add custom login credentials? (y/n)", default="y").lower() == "y":
-        while True:
-            identifier = Prompt.ask(
-                "👤 Credential name",
-                default="admin",
-            )
-            username = Prompt.ask("📧 Username/Email")
-            password = Prompt.ask("🔒 Password", password=True)
+        identifier = Prompt.ask(
+            "👤 Credential name",
+            default="admin",
+        )
+        username = Prompt.ask("📧 Username/Email")
+        password = Prompt.ask("🔒 Password", password=True)
 
-            credentials.append(create_credential_entry(identifier, username, password))
-            InitMessages.credential_added()
-            
-            if not Prompt.ask("➕ Add another credential? (y/n)", default="n").lower() == "y":
-                break
+        credentials.append(create_credential_entry(identifier, username, password))
+        InitMessages.credential_added()
     else:
         credentials.append(create_credential_entry())
         InitMessages.using_default_credentials()
