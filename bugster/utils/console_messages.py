@@ -687,6 +687,61 @@ class RunMessages:
         )
 
 
+class AnalyzeMessages:
+    """Messages for the analyze command."""
+
+    @staticmethod
+    def analysis_already_completed():
+        """Show analysis already completed message."""
+        console.print(
+            f"🔒 [{BugsterColors.WARNING}]The codebase has already been analyzed. Use --force to run again.[/{BugsterColors.WARNING}]"
+        )
+
+    @staticmethod
+    def starting_analysis():
+        """Show starting analysis message."""
+        console.print(f"🔍 [{BugsterColors.PRIMARY}]Starting analysis...[/{BugsterColors.PRIMARY}]")
+
+    @staticmethod
+    def analyzing_codebase_status():
+        """Get analyzing codebase status message."""
+        return f"[{BugsterColors.TEXT_DIM}]Analyzing codebase...[/{BugsterColors.TEXT_DIM}]"
+
+    @staticmethod
+    def analysis_completed():
+        """Show analysis completed message."""
+        console.print(f"✅ [{BugsterColors.SUCCESS}]Analysis completed![/{BugsterColors.SUCCESS}]")
+
+    @staticmethod
+    def specs_generated_for_files():
+        """Show message for specs generated for specific files."""
+        console.print(
+            f"📁 [{BugsterColors.INFO}]Test specs generated only for files:[/{BugsterColors.INFO}]"
+        )
+
+    @staticmethod
+    def print_file_path(file_path):
+        """Print a file path."""
+        console.print(f"   [{BugsterColors.TEXT_DIM}]{file_path}[/{BugsterColors.TEXT_DIM}]")
+
+    @staticmethod
+    def specs_saved_to(path):
+        """Show message for where specs are saved."""
+        console.print(f"\n[{BugsterColors.TEXT_DIM}]Specs saved to:[/{BugsterColors.TEXT_DIM}]")
+        console.print(f"   [{BugsterColors.SUCCESS}]{path}[/{BugsterColors.SUCCESS}]")
+
+    @staticmethod
+    def generic_specs_saved_to(path):
+        """Show generic message for where specs are saved."""
+        console.print(f"📁 [{BugsterColors.INFO}]Test specs saved to:[/{BugsterColors.INFO}]")
+        console.print(f"   [{BugsterColors.SUCCESS}]{path}[/{BugsterColors.SUCCESS}]")
+
+    @staticmethod
+    def error(message):
+        """Show error message."""
+        console.print(f"❌ [{BugsterColors.ERROR}]Error: {message}[/{BugsterColors.ERROR}]")
+
+
 class DestructiveMessages:
     """Messages for the destructive command."""
 
