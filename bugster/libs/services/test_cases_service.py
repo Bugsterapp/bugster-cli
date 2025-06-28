@@ -57,7 +57,9 @@ class TestCasesService:
         )
         self.analysis_json_path = os.path.join(cache_framework_dir, "analysis.json")
 
-    def _init_generation(self, page_filter: Optional[List[str]] = None, count: Optional[int] = None) -> list[dict[Any, str]]:
+    def _init_generation(
+        self, page_filter: Optional[List[str]] = None, count: Optional[int] = None
+    ) -> list[dict[Any, str]]:
         """Post the `analysis.json` file to the API and receive the test cases."""
         logger.info("Posting analysis.json file to the API...")
         if not self.analysis_json_path:
@@ -72,7 +74,7 @@ class TestCasesService:
             data["page_filter"] = ",".join(page_filter)
         if count is not None:
             data["count"] = count
-        with open(self.analysis_json_path, "r") as file:
+        with open(self.analysis_json_path) as file:
             analysis_data = yaml.safe_load(file)
             payload = {"json": analysis_data, "data": data}
             with BugsterHTTPClient() as client:
@@ -192,7 +194,9 @@ class TestCasesService:
             console.print("❌ Test generation timeout")
             return None
 
-    def generate_test_cases(self, page_filter: list[str] = None, count: Optional[int] = None):
+    def generate_test_cases(
+        self, page_filter: list[str] = None, count: Optional[int] = None
+    ):
         """Generate test cases for the given codebase analysis."""
         self._set_analysis_json_path()
         result = self._init_generation(page_filter=page_filter, count=count)
@@ -241,19 +245,39 @@ class TestCasesService:
             yaml.dump(ordered_spec_data, f, default_flow_style=False, sort_keys=False)
 
     def update_spec_by_diff(
-        self, spec_data: dict[Any, str], diff_changes: str, spec_path: str
+        self,
+        spec_data: dict[Any, str],
+        diff_changes: str,
+        spec_path: str,
+        context: Optional[str] = None,
     ):
         """Update a spec file by diff changes."""
         with BugsterHTTPClient() as client:
-            payload = {"test_case": spec_data, "git_diff": diff_changes}
+            payload = {
+                "test_case": spec_data,
+                "git_diff": diff_changes,
+            }
+
+            if context:
+                payload["context"] = context
+
             data = client.put(endpoint=BugsterApiPath.TEST_CASES.value, json=payload)
             self._update_spec_yaml_file(spec_path=spec_path, spec_data=data)
             return data
 
-    def suggest_spec_by_diff(self, page_path: str, diff_changes: str):
+    def suggest_spec_by_diff(
+        self, page_path: str, diff_changes: str, context: Optional[str] = None
+    ):
         """Suggest a spec file by page."""
         with BugsterHTTPClient() as client:
-            payload = {"page_path": page_path, "git_diff": diff_changes}
+            payload = {
+                "page_path": page_path,
+                "git_diff": diff_changes,
+            }
+
+            if context:
+                payload["context"] = context
+
             data = client.post(
                 endpoint=BugsterApiPath.TEST_CASES_NEW.value, json=payload
             )

@@ -1,25 +1,23 @@
-"""
-Initialize command implementation.
-"""
+"""Initialize command implementation."""
 
-import yaml
 import time
-import os
 from pathlib import Path
-from rich.prompt import Prompt, Confirm
-from rich.console import Console
-from rich.table import Table
+
 import typer
+import yaml
+from loguru import logger
+from rich.console import Console
+from rich.prompt import Confirm, Prompt
 
 from bugster.analytics import track_command
+from bugster.clients.http_client import BugsterHTTPClient
+from bugster.commands.auth import auth_command
 from bugster.constants import (
     CONFIG_PATH,
     TESTS_DIR,
 )
-from bugster.utils.user_config import get_api_key
-from bugster.clients.http_client import BugsterHTTPClient, BugsterHTTPError
-from bugster.commands.auth import auth_command
 from bugster.utils.console_messages import InitMessages
+from bugster.utils.user_config import get_api_key
 
 console = Console()
 
@@ -85,33 +83,39 @@ def generate_project_id(project_name: str) -> str:
     safe_name = project_name.lower().replace(" ", "-")
     return f"{safe_name}-{timestamp}"
 
+
 @track_command("init")
 def init_command():
     """Initialize Bugster CLI configuration."""
     InitMessages.welcome()
-    
+
     # First check if user is authenticated
     api_key = get_api_key()
+
     if not api_key:
+        logger.info("API key not found, running auth command...")
         InitMessages.auth_required()
-        
+
         # Run auth command
         auth_command()
-        
+
         # Check if auth was successful
         api_key = get_api_key()
+
         if not api_key:
             InitMessages.auth_failed()
             raise typer.Exit(1)
-        
+
         InitMessages.auth_success()
 
     # Check for existing configuration
     config_exists, existing_config_path = find_existing_config()
-    
+
     if config_exists:
         if existing_config_path == CONFIG_PATH:
-            if not Confirm.ask(InitMessages.get_existing_project_warning(), default=False):
+            if not Confirm.ask(
+                InitMessages.get_existing_project_warning(), default=False
+            ):
                 InitMessages.initialization_cancelled()
                 raise typer.Exit(0)
         else:
@@ -123,21 +127,23 @@ def init_command():
     # Project setup
     InitMessages.project_setup()
     project_name = Prompt.ask("🏷️  Project name", default=Path.cwd().name)
-    
+
     # Create project via API
     try:
         with BugsterHTTPClient() as client:
             client.set_headers({"x-api-key": api_key})
             InitMessages.creating_project()
-            
-            project_data = client.post("/api/v1/gui/project", json={"name": project_name})
+
+            project_data = client.post(
+                "/api/v1/gui/project", json={"name": project_name}
+            )
             project_id = project_data.get("project_id") or project_data.get("id")
-            
+
             if not project_id:
                 raise Exception("Project ID not found in response")
-                
+
             InitMessages.project_created()
-            
+
     except Exception as e:
         InitMessages.project_creation_error(str(e))
         project_id = generate_project_id(project_name)
@@ -149,7 +155,12 @@ def init_command():
     InitMessages.auth_setup()
     credentials = []
 
-    if Prompt.ask("➕ Would you like to add custom login credentials? (y/n)", default="y").lower() == "y":
+    if (
+        Prompt.ask(
+            "➕ Would you like to add custom login credentials? (y/n)", default="y"
+        ).lower()
+        == "y"
+    ):
         while True:
             identifier = Prompt.ask(
                 "👤 Credential name",
@@ -160,8 +171,11 @@ def init_command():
 
             credentials.append(create_credential_entry(identifier, username, password))
             InitMessages.credential_added()
-            
-            if not Prompt.ask("➕ Add another credential? (y/n)", default="n").lower() == "y":
+
+            if (
+                not Prompt.ask("➕ Add another credential? (y/n)", default="n").lower()
+                == "y"
+            ):
                 break
     else:
         credentials.append(create_credential_entry())
@@ -188,7 +202,7 @@ def init_command():
 
     # Show success message and summary
     InitMessages.initialization_success()
-    
+
     # Show project summary
     summary_table = InitMessages.create_project_summary_table(
         project_name,
@@ -200,11 +214,13 @@ def init_command():
     console.print(summary_table)
 
     # Show credentials if custom ones were added
-    if len(credentials) > 1 or (len(credentials) == 1 and credentials[0]["id"] != "admin"):
+    if len(credentials) > 1 or (
+        len(credentials) == 1 and credentials[0]["id"] != "admin"
+    ):
         creds_table = InitMessages.create_credentials_table(credentials)
         console.print()
         console.print(creds_table)
-    
+
     # Show success panel
     success_panel = InitMessages.create_success_panel()
     console.print()

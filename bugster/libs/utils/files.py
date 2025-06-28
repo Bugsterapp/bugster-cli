@@ -34,7 +34,7 @@ def parse_spec_page(data, spec_path) -> dict[str, dict]:
     }
 
 
-def get_specs_pages(parser: Callable = parse_spec_page) -> dict[str, dict]:
+def get_specs_pages(parser: Callable = parse_spec_page) -> dict[str, dict | list[dict]]:
     """Get the specs pages."""
     specs_paths = get_specs_paths()
     specs_pages = {}
@@ -55,7 +55,13 @@ def get_specs_pages(parser: Callable = parse_spec_page) -> dict[str, dict]:
                 raise ValueError(f"Missing 'page_path' in spec file: {spec_path}")
 
             page_path = data["page_path"]
-            specs_pages[page_path] = parser(data=data, spec_path=spec_path)
+            parsed_spec = parser(data=data, spec_path=spec_path)
+
+            # Handle multiple specs with the same page_path
+            if page_path in specs_pages:
+                specs_pages[page_path].append(parsed_spec)
+            else:
+                specs_pages[page_path] = [parsed_spec]
 
     return specs_pages
 

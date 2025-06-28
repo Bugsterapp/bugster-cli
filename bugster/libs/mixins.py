@@ -46,6 +46,31 @@ def format_diff_branch_head_command():
     )
 
 
+def format_tests_for_llm(existing_specs: list[dict] | dict) -> str:
+    """Format a list of specs for LLM context to prevent duplication.
+
+    :param existing_specs: Dict or list of dicts with the spec data.
+    :return: Formatted context string for LLM.
+    """
+    if isinstance(existing_specs, list):
+        context_lines = []
+
+        for i, spec in enumerate(existing_specs, 1):
+            name = spec["data"]["name"]
+            task = spec["data"]["task"]
+            steps = " -> ".join(spec["data"]["steps"])
+            context_lines.append(
+                f"{i}. Test: {name}. Task: {task.lower()}. Steps: {steps}"
+            )
+
+        return "\n".join(context_lines)
+    else:
+        name = existing_specs["data"]["name"]
+        task = existing_specs["data"]["task"]
+        steps = " -> ".join(existing_specs["data"]["steps"])
+        return f"Test: {name}. Task: {task.lower()}. Steps: {steps}"
+
+
 class DetectAffectedSpecsMixin:
     """Detect affected specs mixin."""
 
@@ -59,7 +84,7 @@ class DetectAffectedSpecsMixin:
 
         for page in diff_changes_per_page.keys():
             if page in specs_pages:
-                affected_specs.append(specs_pages[page])
+                affected_specs.extend(specs_pages[page])
 
         logger.info("Affected specs: {}", affected_specs)
         return affected_specs
@@ -67,6 +92,27 @@ class DetectAffectedSpecsMixin:
 
 class UpdateMixin:
     """Update mixin."""
+
+    def _update_spec(
+        self, spec, diff_changes_per_page, page, updated_specs, context=None
+    ):
+        """Update a spec."""
+        spec_data = spec["data"]
+        spec_path = spec["path"]
+
+        with Status(
+            f"[yellow]Updating: {spec_path}[/yellow]", spinner="dots"
+        ) as status:
+            diff = "\n==========\n".join(diff_changes_per_page[page])
+            self.test_cases_service.update_spec_by_diff(
+                spec_data=spec_data,
+                diff_changes=diff,
+                spec_path=spec_path,
+                context=context,
+            )
+            status.stop()
+            console.print(f"✓ [green]{spec_path}[/green] updated")
+            return updated_specs + 1
 
     def update(self, *args, **kwargs):
         """Update existing specs."""
@@ -83,20 +129,31 @@ class UpdateMixin:
 
         for page in affected_pages:
             if page in specs_pages:
-                spec = specs_pages[page]
-                spec_data = spec["data"]
-                spec_path = spec["path"]
+                specs_by_page = specs_pages[page]
 
-                with Status(
-                    f"[yellow]Updating: {spec_path}[/yellow]", spinner="dots"
-                ) as status:
-                    diff = "\n==========\n".join(diff_changes_per_page[page])
-                    self.test_cases_service.update_spec_by_diff(
-                        spec_data=spec_data, diff_changes=diff, spec_path=spec_path
+                # If an affected page has multiple specs, update each spec
+                if len(specs_by_page) > 1:
+                    for current_spec in specs_by_page:
+                        llm_context = format_tests_for_llm(
+                            # Don't include the spec we are updating in the context
+                            existing_specs=[
+                                spec for spec in specs_by_page if spec != current_spec
+                            ]
+                        )
+                        updated_specs = self._update_spec(
+                            spec=current_spec,
+                            diff_changes_per_page=diff_changes_per_page,
+                            page=page,
+                            context=llm_context,
+                            updated_specs=updated_specs,
+                        )
+                else:
+                    updated_specs = self._update_spec(
+                        spec=specs_by_page,
+                        diff_changes_per_page=diff_changes_per_page,
+                        page=page,
+                        updated_specs=updated_specs,
                     )
-                    status.stop()
-                    console.print(f"✓ [green]{spec_path}[/green] updated")
-                    updated_specs += 1
             else:
                 text = Text("✗ Page ")
                 text.append(page, style="red")
@@ -112,6 +169,19 @@ class UpdateMixin:
 class SuggestMixin:
     """Suggest mixin."""
 
+    def _suggest_spec(self, page, diff_changes_per_page, suggested_specs, context=None):
+        """Suggest a spec."""
+        with Status(
+            f"[yellow]Suggesting new spec for {page}[/yellow]", spinner="dots"
+        ) as status:
+            diff = "\n==========\n".join(diff_changes_per_page[page])
+            self.test_cases_service.suggest_spec_by_diff(
+                page_path=page, diff_changes=diff, context=context
+            )
+            status.stop()
+            console.print(f"✓ [green]{page}[/green] suggested")
+            suggested_specs.append(page)
+
     def suggest(self, *args, **kwargs):
         """Suggest new specs."""
         file_paths = self.mapped_changes["new"]
@@ -120,18 +190,23 @@ class SuggestMixin:
             import_tree=self.import_tree, git_command=GitCommand.DIFF_HEAD
         )
         suggested_specs = []
+        affected_pages = diff_changes_per_page.keys()
+        specs_pages = get_specs_pages()
 
-        for page in diff_changes_per_page.keys():
-            with Status(
-                f"[yellow]Suggesting new spec for {page}[/yellow]", spinner="dots"
-            ) as status:
-                diff = "\n==========\n".join(diff_changes_per_page[page])
-                self.test_cases_service.suggest_spec_by_diff(
-                    page_path=page, diff_changes=diff
-                )
-                status.stop()
-                console.print(f"✓ [green]{page}[/green] suggested")
-                suggested_specs.append(page)
+        for page in affected_pages:
+            specs_by_page = specs_pages.get(page, [])
+            params = {
+                "diff_changes_per_page": diff_changes_per_page,
+                "page": page,
+                "suggested_specs": suggested_specs,
+            }
+
+            if len(specs_by_page) > 1:
+                params["context"] = format_tests_for_llm(existing_specs=specs_by_page)
+
+            self._suggest_spec(
+                **params,
+            )
 
         if len(suggested_specs) > 0:
             for spec in suggested_specs:
@@ -140,6 +215,16 @@ class SuggestMixin:
 
 class DeleteMixin:
     """Delete mixin."""
+
+    def _delete_spec(self, deleted_specs, spec_path):
+        """Delete a spec."""
+        with Status(
+            f"[yellow]Deleting: {spec_path}[/yellow]", spinner="dots"
+        ) as status:
+            self.test_cases_service.delete_spec_by_spec_path(spec_path=spec_path)
+            status.stop()
+            console.print(f"✓ [green]{spec_path}[/green] deleted")
+            return deleted_specs + 1
 
     def delete(self, *args, **kwargs):
         """Delete existing specs."""
@@ -156,18 +241,17 @@ class DeleteMixin:
 
         for page in deleted_pages:
             if page in specs_pages:
-                spec = specs_pages[page]
-                spec_path = spec["path"]
+                specs_by_page = specs_pages[page]
 
-                with Status(
-                    f"[yellow]Deleting: {spec_path}[/yellow]", spinner="dots"
-                ) as status:
-                    self.test_cases_service.delete_spec_by_spec_path(
-                        spec_path=spec_path
+                if len(specs_by_page) > 1:
+                    for spec in specs_by_page:
+                        deleted_specs = self._delete_spec(
+                            deleted_specs=deleted_specs, spec_path=spec["path"]
+                        )
+                else:
+                    deleted_specs = self._delete_spec(
+                        deleted_specs=deleted_specs, spec_path=specs_by_page["path"]
                     )
-                    status.stop()
-                    console.print(f"✓ [green]{spec_path}[/green] deleted")
-                    deleted_specs += 1
             else:
                 text = Text("✗ Page ")
                 text.append(page, style="red")
