@@ -192,9 +192,7 @@ def get_diff_changes_per_page(
 
         if is_nextjs_page(file_path=old_path):
             new_diff = parsed_diff.to_llm_format(file_change=file_change)
-            git_prefix_path = run_git_command(
-                cmd_key=GitCommand.GIT_WORKTREE_PREFIX
-            ).strip()
+            git_prefix_path = get_git_prefix_path()
             relative_path = old_path[len(git_prefix_path) :].lstrip("/")
             diff_changes_per_page[relative_path].append(new_diff)
         else:
@@ -208,3 +206,8 @@ def get_diff_changes_per_page(
                     diff_changes_per_page[page].append(new_diff)
 
     return diff_changes_per_page
+
+
+def get_git_prefix_path():
+    """Get the git prefix path."""
+    return run_git_command(cmd_key=GitCommand.GIT_WORKTREE_PREFIX).strip()

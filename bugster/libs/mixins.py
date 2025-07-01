@@ -9,7 +9,7 @@ from rich.text import Text
 
 from bugster.libs.utils.enums import GitCommand
 from bugster.libs.utils.files import get_specs_pages
-from bugster.libs.utils.git import get_diff_changes_per_page, run_git_command
+from bugster.libs.utils.git import get_diff_changes_per_page, get_git_prefix_path
 from bugster.libs.utils.nextjs.pages_finder import (
     is_nextjs_page,
 )
@@ -146,9 +146,7 @@ class DeleteMixin:
         console.print(f"✓ Found {len(file_paths)} deleted files")
         deleted_pages = set()
 
-        git_prefix_path = run_git_command(
-            cmd_key=GitCommand.GIT_WORKTREE_PREFIX
-        ).strip()
+        git_prefix_path = get_git_prefix_path()
         for file_path in file_paths:
             if is_nextjs_page(file_path=file_path):
                 page_path = file_path[len(git_prefix_path) :].lstrip("/")
