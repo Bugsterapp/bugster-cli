@@ -25,6 +25,7 @@ class GitCommand(list, Enum):
     """  # noqa: E501
 
     CURRENT_BRANCH = ["git", "rev-parse", "--abbrev-ref", "HEAD"]
+    GIT_WORKTREE_PREFIX = ["git", "rev-parse", "--show-prefix"]
     DIFF_STATUS_PORCELAIN = [
         "git",
         "status",
@@ -47,6 +48,16 @@ class GitCommand(list, Enum):
         "*.jsx",
     ]
     DIFF_CHANGES = ["git", "diff", "--", "*.tsx", "*.ts", "*.js", "*.jsx"]
+    DIFF_CHANGES_ONLY_MODIFIED = [
+        "git",
+        "diff",
+        "--diff-filter=M",
+        "--",
+        "*.tsx",
+        "*.ts",
+        "*.js",
+        "*.jsx",
+    ]
     DIFF_BRANCH_HEAD = [
         "git",
         "diff",

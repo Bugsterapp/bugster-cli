@@ -9,7 +9,7 @@ from rich.text import Text
 
 from bugster.libs.utils.enums import GitCommand
 from bugster.libs.utils.files import get_specs_pages
-from bugster.libs.utils.git import get_diff_changes_per_page
+from bugster.libs.utils.git import get_diff_changes_per_page, run_git_command
 from bugster.libs.utils.nextjs.pages_finder import (
     is_nextjs_page,
 )
@@ -73,11 +73,10 @@ class UpdateMixin:
         file_paths = self.mapped_changes["modified"]
         console.print(f"✓ Found {len(file_paths)} modified files")
         diff_changes_per_page = get_diff_changes_per_page(
-            import_tree=self.import_tree, git_command=GitCommand.DIFF_CHANGES
+            import_tree=self.import_tree,
+            git_command=GitCommand.DIFF_CHANGES_ONLY_MODIFIED,
         )
-        affected_pages = [
-            page for page in diff_changes_per_page.keys() if page in file_paths
-        ]
+        affected_pages = diff_changes_per_page.keys()
         updated_specs = 0
         specs_pages = get_specs_pages()
 
@@ -147,9 +146,13 @@ class DeleteMixin:
         console.print(f"✓ Found {len(file_paths)} deleted files")
         deleted_pages = set()
 
+        git_prefix_path = run_git_command(
+            cmd_key=GitCommand.GIT_WORKTREE_PREFIX
+        ).strip()
         for file_path in file_paths:
             if is_nextjs_page(file_path=file_path):
-                deleted_pages.add(file_path)
+                page_path = file_path[len(git_prefix_path) :].lstrip("/")
+                deleted_pages.add(page_path)
 
         specs_pages = get_specs_pages()
         deleted_specs = 0

@@ -192,7 +192,11 @@ def get_diff_changes_per_page(
 
         if is_nextjs_page(file_path=old_path):
             new_diff = parsed_diff.to_llm_format(file_change=file_change)
-            diff_changes_per_page[old_path].append(new_diff)
+            git_prefix_path = run_git_command(
+                cmd_key=GitCommand.GIT_WORKTREE_PREFIX
+            ).strip()
+            relative_path = old_path[len(git_prefix_path) :].lstrip("/")
+            diff_changes_per_page[relative_path].append(new_diff)
         else:
             pages = find_pages_that_use_file(
                 file_path=old_path, import_tree=import_tree

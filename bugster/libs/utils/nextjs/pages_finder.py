@@ -51,7 +51,7 @@ def find_file_in_imports(
     for import_path, import_data in imports.items():
         if isinstance(import_data, dict):
             # Check if this is the target file
-            if import_data.get("path") == target_file:
+            if target_file.endswith(import_data.get("path")):
                 return current_chain + [import_path]
 
             # If not circular, search deeper
