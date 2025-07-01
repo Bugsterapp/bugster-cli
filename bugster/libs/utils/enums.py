@@ -4,7 +4,6 @@ from enum import Enum
 class BugsterApiPath(str, Enum):
     """Bugster API paths."""
 
-    TEST_CASES = "/api/v1/test-cases"
     TEST_CASES_NEW = "/api/v1/test-cases/new"
     GENERATE_INIT = "/generate/init"
     GENERATE_CHECK_RESULTS = "/generate/check-results"

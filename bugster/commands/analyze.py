@@ -22,14 +22,16 @@ console = Console()
 def analyze_command(options: dict = {}):
     """Run Bugster CLI analysis command."""
     force = options.get("force", False)
-    page_filter = options.get("page_filter", None)
-    count = options.get("count", None)
+    page_filter = options.get("page_filter")
+    count = options.get("count")
+
     try:
         if has_analysis_completed() and not force:
             console.print(
                 "🔒 The codebase has already been analyzed and cannot be run again"
             )
             return
+
         with analysis_tracker():
             console.print("🔍 Starting analysis...")
 
@@ -37,13 +39,17 @@ def analyze_command(options: dict = {}):
                 analyze_codebase(options=options)
                 status.stop()
                 console.print("✅ Analysis completed!")
+
             TestCasesService().generate_test_cases(page_filter=page_filter, count=count)
             console.print()
+
             if page_filter:
-                console.print(f"📁 Test specs generated only for files:")
+                console.print("📁 Test specs generated only for files:")
+
                 for file_path in page_filter:
                     console.print(f"   {file_path}")
-                console.print(f"\nSpecs saved to:")
+
+                console.print("\nSpecs saved to:")
                 console.print(f"   {os.path.relpath(TESTS_DIR, WORKING_DIR)}")
             else:
                 console.print("📁 Test specs saved to:")

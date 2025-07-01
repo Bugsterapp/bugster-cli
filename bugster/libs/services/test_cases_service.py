@@ -14,7 +14,8 @@ from bugster.clients.http_client import BugsterHTTPClient
 from bugster.constants import BUGSTER_DIR, TESTS_DIR
 from bugster.libs.utils.enums import BugsterApiPath
 from bugster.libs.utils.errors import BugsterError
-from bugster.libs.utils.files import get_specs_paths
+from bugster.libs.utils.files import get_specs_pages, get_specs_paths
+from bugster.libs.utils.llm import format_tests_for_llm
 from bugster.libs.utils.nextjs.extract_page_folder import extract_page_folder
 from bugster.utils.user_config import get_api_key
 
@@ -47,21 +48,27 @@ class TestCasesService:
 
     def __init__(self):
         """Initialize the service."""
-        self.analysis_json_path = None
+        self._analysis_json_path = None
 
-    def _set_analysis_json_path(self) -> str:
-        """Set the `analysis.json` file path."""
-        project_info = get_project_info()
-        cache_framework_dir = os.path.join(
-            BUGSTER_DIR, project_info["data"]["frameworks"][0]["id"]
-        )
-        self.analysis_json_path = os.path.join(cache_framework_dir, "analysis.json")
+    @property
+    def analysis_json_path(self) -> str:
+        """Get the `analysis.json` file path."""
+        if self._analysis_json_path is None:
+            project_info = get_project_info()
+            cache_framework_dir = os.path.join(
+                BUGSTER_DIR, project_info["data"]["frameworks"][0]["id"]
+            )
+            self._analysis_json_path = os.path.join(
+                cache_framework_dir, "analysis.json"
+            )
+        return self._analysis_json_path
 
     def _init_generation(
         self, page_filter: Optional[List[str]] = None, count: Optional[int] = None
     ) -> list[dict[Any, str]]:
         """Post the `analysis.json` file to the API and receive the test cases."""
         logger.info("Posting analysis.json file to the API...")
+
         if not self.analysis_json_path:
             raise BugsterError("Analysis JSON path is not set")
 
@@ -69,18 +76,51 @@ class TestCasesService:
             raise BugsterError(
                 "Analysis JSON file not found, execute bugster analyze first"
             )
+
         data = {}
+
         if page_filter:
             data["page_filter"] = ",".join(page_filter)
+
+        context = ""
+
+        if page_filter:
+            specs_pages = {
+                page_path: specs
+                for page_path, specs in specs_pages.items()
+                if page_path in page_filter
+            }
+        else:
+            specs_pages = get_specs_pages()
+
+        for page_path, specs_by_page in specs_pages.items():
+            logger.info("Adding context for page: {}...", page_path)
+
+            if context:
+                context += "\n\n"
+
+            context += format_tests_for_llm(
+                existing_specs=specs_by_page, include_page_path=True
+            )
+
+        logger.info("Resulting context: '{}'", context)
+
+        if context:
+            data["context"] = context
+
         if count is not None:
             data["count"] = count
+
         with open(self.analysis_json_path) as file:
             analysis_data = yaml.safe_load(file)
             payload = {"json": analysis_data, "data": data}
+
             with BugsterHTTPClient() as client:
                 api_key = get_api_key()
+
                 if api_key:
                     client.set_headers({"x-api-key": api_key})
+
                 return client.post(
                     endpoint=BugsterApiPath.GENERATE_INIT.value,
                     json=payload,
@@ -141,8 +181,10 @@ class TestCasesService:
         """Get the status of a job."""
         with BugsterHTTPClient() as client:
             api_key = get_api_key()
+
             if api_key:
                 client.set_headers({"x-api-key": api_key})
+
             return client.get(
                 endpoint=BugsterApiPath.GENERATE_CHECK_RESULTS.value,
                 params={"job_id": job_id},
@@ -198,7 +240,6 @@ class TestCasesService:
         self, page_filter: list[str] = None, count: Optional[int] = None
     ):
         """Generate test cases for the given codebase analysis."""
-        self._set_analysis_json_path()
         result = self._init_generation(page_filter=page_filter, count=count)
         test_cases = self._polling_test_cases(result=result)
 

@@ -10,6 +10,7 @@ from rich.text import Text
 from bugster.libs.utils.enums import GitCommand
 from bugster.libs.utils.files import get_specs_pages
 from bugster.libs.utils.git import get_diff_changes_per_page
+from bugster.libs.utils.llm import format_tests_for_llm
 from bugster.libs.utils.nextjs.pages_finder import (
     is_nextjs_page,
 )
@@ -44,31 +45,6 @@ def format_diff_branch_head_command():
         .format(target_branch=target_branch)
         .split(" ")
     )
-
-
-def format_tests_for_llm(existing_specs: list[dict] | dict) -> str:
-    """Format a list of specs for LLM context to prevent duplication.
-
-    :param existing_specs: Dict or list of dicts with the spec data.
-    :return: Formatted context string for LLM.
-    """
-    if isinstance(existing_specs, list):
-        context_lines = []
-
-        for i, spec in enumerate(existing_specs, 1):
-            name = spec["data"]["name"]
-            task = spec["data"]["task"]
-            steps = " -> ".join(spec["data"]["steps"])
-            context_lines.append(
-                f"{i}. Test: {name}. Task: {task.lower()}. Steps: {steps}"
-            )
-
-        return "\n".join(context_lines)
-    else:
-        name = existing_specs["data"]["name"]
-        task = existing_specs["data"]["task"]
-        steps = " -> ".join(existing_specs["data"]["steps"])
-        return f"Test: {name}. Task: {task.lower()}. Steps: {steps}"
 
 
 class DetectAffectedSpecsMixin:
