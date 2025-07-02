@@ -1,11 +1,11 @@
-"""
-User configuration utilities for Bugster CLI.
-"""
+"""User configuration utilities for Bugster CLI."""
 
-import os
 import json
+import os
 from pathlib import Path
 from typing import Optional
+
+from loguru import logger
 
 CONFIG_FILE = Path.home() / ".bugsterrc"
 ENV_API_KEY = "BUGSTER_CLI_API_KEY"
@@ -19,6 +19,7 @@ def get_user_config_file() -> Path:
 def load_user_config() -> dict:
     """Load configuration from file."""
     config_file = get_user_config_file()
+
     if not config_file.exists():
         return {}
 
@@ -44,11 +45,14 @@ def get_api_key() -> Optional[str]:
     """Get API key from environment or config file."""
     # First check environment variable
     api_key = os.getenv(ENV_API_KEY)
+
     if api_key:
+        logger.info("API key found in environment variable")
         return api_key
 
     # Then check config file
     config = load_user_config()
+    logger.info("API key found in config file")
     return config.get("apiKey")
 
 

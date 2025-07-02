@@ -123,7 +123,9 @@ def _run_tests(
         False, "--silent", "-s", help="Run in silent mode (less verbose output)"
     ),
     stream_results: bool = typer.Option(
-        True, "--stream-results/--no-stream-results", help="Stream test results. Enabled by default"
+        True,
+        "--stream-results/--no-stream-results",
+        help="Stream test results. Enabled by default",
     ),
     output: Optional[str] = typer.Option(
         None, "--output", help="Save test results to JSON file"
@@ -192,10 +194,12 @@ def _analyze_codebase(
     ),
 ):
     """Analyze your codebase and generate test specs."""
-    from bugster.commands.analyze import analyze_command
     from pathlib import Path
-    
+
+    from bugster.commands.analyze import analyze_command
+
     page_filter = None
+
     if page:
         page_paths = [p.strip() for p in page.split(",") if p.strip()]
         validated_paths = []
@@ -218,18 +222,27 @@ def _analyze_codebase(
             # Validate each path exists
             if not file_path.exists():
                 raise typer.BadParameter(f"File not found: {file_path}")
+
             if not file_path.is_file():
                 raise typer.BadParameter(f"Path is not a file: {file_path}")
+
             if file_path.suffix not in [".js", ".jsx", ".ts", ".tsx"]:
                 raise typer.BadParameter(
                     f"Invalid file type: {file_path}. Must be a JavaScript/TypeScript file."
                 )
-            
+
             validated_paths.append(str(file_path))
 
         page_filter = validated_paths
-        
-    analyze_command(options={"show_logs": show_logs, "force": force, "page_filter": page_filter, "count": count})
+
+    analyze_command(
+        options={
+            "show_logs": show_logs,
+            "force": force,
+            "page_filter": page_filter,
+            "count": count,
+        }
+    )
 
 
 # Register the same function with two different command names
@@ -289,7 +302,6 @@ def sync(
     from bugster.commands.sync import sync_command
 
     sync_command(branch, pull, push, clean_remote, dry_run, prefer)
-
 
 
 @app.command()

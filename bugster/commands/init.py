@@ -1,6 +1,4 @@
-"""
-Initialize command implementation.
-"""
+"""Initialize command implementation."""
 
 import contextlib
 import time
@@ -8,6 +6,7 @@ from pathlib import Path
 
 import typer
 import yaml
+from loguru import logger
 from rich.console import Console
 from rich.prompt import Confirm, Prompt
 
@@ -94,7 +93,9 @@ def init_command():
 
     # First check if user is authenticated
     api_key = get_api_key()
+
     if not api_key:
+        logger.info("API key not found, running auth command...")
         InitMessages.auth_required()
 
         # Run auth command
@@ -102,6 +103,7 @@ def init_command():
 
         # Check if auth was successful
         api_key = get_api_key()
+
         if not api_key:
             InitMessages.auth_failed()
             raise typer.Exit(1)
