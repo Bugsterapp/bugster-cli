@@ -79,3 +79,30 @@ class GitCommand(list, Enum):
     ]
     DIFF_CACHED = ["git", "diff", "--cached", "--", "*.tsx", "*.ts", "*.js", "*.jsx"]
     RESET = ["git", "reset", "--quiet"]
+    DIFF_AGAINST_DEFAULT_LOCAL = [
+        "bash",
+        "-c",
+        (
+            "git diff "
+            "$(git symbolic-ref --short refs/remotes/origin/HEAD | cut -d'/' -f2) "
+            "-- '*.tsx' '*.ts' '*.js' '*.jsx'"
+        ),
+    ]
+    DIFF_CHANGES_ONLY_MODIFIED_AGAINST_DEFAULT_LOCAL = [
+        "bash",
+        "-c",
+        (
+            "git diff "
+            "$(git symbolic-ref --short refs/remotes/origin/HEAD | cut -d'/' -f2) "
+            "--diff-filter=M -- '*.tsx' '*.ts' '*.js' '*.jsx'"
+        ),
+    ]
+    DIFF_NAME_STATUS_AGAINST_DEFAULT_LOCAL = [
+        "bash",
+        "-c",
+        (
+            "git diff --name-status "
+            "$(git symbolic-ref --short refs/remotes/origin/HEAD | cut -d'/' -f2) "
+            "-- '*.tsx' '*.ts' '*.js' '*.jsx'"
+        ),
+    ]

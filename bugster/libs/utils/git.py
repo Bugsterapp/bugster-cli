@@ -170,6 +170,53 @@ def parse_diff_status(diff_status: str):
     return result
 
 
+def parse_diff_name_status(diff_name_status: str):
+    """Parse git diff --name-status output into categorized file lists.
+
+    Git diff --name-status output format:
+    - M = Modified
+    - A = Added
+    - D = Deleted
+    - R = Renamed (shows as R100 filename1 filename2)
+    - C = Copied (shows as C100 filename1 filename2)
+
+    :param diff_name_status: Raw output from 'git diff --name-status'.
+    :return: Dictionary with 'modified', 'deleted', and 'new' file lists.
+    """
+    result = {"modified": [], "deleted": [], "new": []}
+
+    # Split by newlines and filter out empty lines
+    lines = [line for line in diff_name_status.strip().split("\n") if line.strip()]
+
+    for line in lines:
+        if not line.strip():
+            continue
+
+        parts = line.split("\t")
+        if len(parts) < 2:
+            continue
+
+        status_code = parts[0].strip()
+        filename = parts[1].strip()
+
+        if not filter_path(path=filename):
+            continue
+
+        # Handle the status codes
+        if status_code.startswith("D"):
+            result["deleted"].append(filename)
+        elif status_code.startswith("A"):
+            result["new"].append(filename)
+        elif status_code.startswith("M"):
+            result["modified"].append(filename)
+        elif status_code.startswith("R") or status_code.startswith("C"):
+            result["modified"].append(filename)
+            continue
+
+    logger.info("Parsed diff name status!")
+    return result
+
+
 def get_diff_changes_per_page(
     import_tree: dict, git_command: GitCommand
 ) -> dict[str, list[str]]:

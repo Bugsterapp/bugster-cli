@@ -94,9 +94,17 @@ class UpdateMixin:
         """Update existing specs."""
         file_paths = self.mapped_changes["modified"]
         console.print(f"✓ Found {len(file_paths)} modified files")
+
+        # Choose git command based on against_default flag
+        git_command = (
+            GitCommand.DIFF_CHANGES_ONLY_MODIFIED_AGAINST_DEFAULT_LOCAL
+            if getattr(self, "against_default", False)
+            else GitCommand.DIFF_CHANGES_ONLY_MODIFIED
+        )
+
         diff_changes_per_page = get_diff_changes_per_page(
             import_tree=self.import_tree,
-            git_command=GitCommand.DIFF_CHANGES_ONLY_MODIFIED,
+            git_command=git_command,
         )
         affected_pages = diff_changes_per_page.keys()
         updated_specs = 0
@@ -161,8 +169,16 @@ class SuggestMixin:
         """Suggest new specs."""
         file_paths = self.mapped_changes["new"]
         console.print(f"✓ Found {len(file_paths)} added files")
+
+        # Choose git command based on against_default flag
+        git_command = (
+            GitCommand.DIFF_AGAINST_DEFAULT_LOCAL
+            if getattr(self, "against_default", False)
+            else GitCommand.DIFF_HEAD
+        )
+
         diff_changes_per_page = get_diff_changes_per_page(
-            import_tree=self.import_tree, git_command=GitCommand.DIFF_HEAD
+            import_tree=self.import_tree, git_command=git_command
         )
         suggested_specs = []
         affected_pages = diff_changes_per_page.keys()

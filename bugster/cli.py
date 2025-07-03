@@ -266,6 +266,11 @@ def update(
         "--show-logs",
         help="Show detailed logs during analysis",
     ),
+    against_default: bool = typer.Option(
+        False,
+        "--against-default",
+        help="Compare against the default branch instead of HEAD",
+    ),
 ):
     """Update your test specs with the latest changes."""
     from bugster.commands.update import update_command
@@ -275,6 +280,7 @@ def update(
         suggest_only=suggest_only,
         delete_only=delete_only,
         show_logs=show_logs,
+        against_default=against_default,
     )
 
 

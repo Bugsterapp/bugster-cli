@@ -9,17 +9,26 @@ from bugster.libs.mixins import (
 )
 from bugster.libs.services.test_cases_service import TestCasesService
 from bugster.libs.utils.enums import GitCommand
-from bugster.libs.utils.git import parse_diff_status, run_git_command
+from bugster.libs.utils.git import (
+    parse_diff_name_status,
+    parse_diff_status,
+    run_git_command,
+)
 from bugster.libs.utils.nextjs.import_tree_generator import generate_import_tree
 
 
 class UpdateService(ABC):
     """Base class for update services."""
 
-    def __init__(self, test_cases_service: Optional["TestCasesService"] = None):
+    def __init__(
+        self,
+        test_cases_service: Optional["TestCasesService"] = None,
+        against_default: bool = False,
+    ):
         self._test_cases_service = test_cases_service
         self._mapped_changes: Optional[dict] = None
         self._import_tree: Optional[dict] = None
+        self.against_default = against_default
 
     @property
     def test_cases_service(self) -> TestCasesService:
@@ -44,8 +53,16 @@ class UpdateService(ABC):
 
     def _get_mapped_changes(self) -> dict:
         """Get the mapped changes of the user's repository."""
-        diff_status = run_git_command(cmd_key=GitCommand.DIFF_STATUS_PORCELAIN)
-        return parse_diff_status(diff_status=diff_status)
+        if self.against_default:
+            # When comparing against default branch, use git diff --name-status
+            diff_status = run_git_command(
+                cmd_key=GitCommand.DIFF_NAME_STATUS_AGAINST_DEFAULT_LOCAL
+            )
+            return parse_diff_name_status(diff_status=diff_status)
+        else:
+            # Normal behavior: use git status --porcelain
+            diff_status = run_git_command(cmd_key=GitCommand.DIFF_STATUS_PORCELAIN)
+            return parse_diff_status(diff_status=diff_status)
 
     def _get_import_tree(self) -> dict:
         """Get the import tree of the user's repository."""
@@ -104,13 +121,18 @@ class DetectAffectedSpecsService(UpdateService, DetectAffectedSpecsMixin):
         return self.detect()
 
 
-def get_update_service(update_only: bool, suggest_only: bool, delete_only: bool):
+def get_update_service(
+    update_only: bool,
+    suggest_only: bool,
+    delete_only: bool,
+    against_default: bool = False,
+):
     """Get the update service based on the flags."""
     if update_only:
-        return UpdateOnlyService()
+        return UpdateOnlyService(against_default=against_default)
     elif suggest_only:
-        return SuggestOnlyService()
+        return SuggestOnlyService(against_default=against_default)
     elif delete_only:
-        return DeleteOnlyService()
+        return DeleteOnlyService(against_default=against_default)
     else:
-        return DefaultUpdateService()
+        return DefaultUpdateService(against_default=against_default)
