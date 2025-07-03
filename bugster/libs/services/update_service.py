@@ -55,10 +55,10 @@ class UpdateService(ABC):
         """Get the mapped changes of the user's repository."""
         if self.against_default:
             # When comparing against default branch, use git diff --name-status
-            diff_status = run_git_command(
+            diff_name_status = run_git_command(
                 cmd_key=GitCommand.DIFF_NAME_STATUS_AGAINST_DEFAULT_LOCAL
             )
-            return parse_diff_name_status(diff_status=diff_status)
+            return parse_diff_name_status(diff_name_status=diff_name_status)
         else:
             # Normal behavior: use git status --porcelain
             diff_status = run_git_command(cmd_key=GitCommand.DIFF_STATUS_PORCELAIN)
