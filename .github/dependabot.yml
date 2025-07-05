@@ -1,0 +1,34 @@
+version: 2
+updates:
+  # NPM: Daily security patches, weekly minor/major
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "daily"          # Critical security fixes ASAP
+      time: "09:00"              # Daily at 9 AM UTC
+    allow:
+      - dependency-type: "direct" # Focus on direct deps first
+    labels:
+      - "dependencies"
+      - "security"
+    commit-message:
+      prefix: "chore(deps)" 
+
+  # Optional: Add Python if CLI uses pip/poetry
+  - package-ecosystem: "pip"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+
+  # OS-level patches (Dockerfiles, GitHub Actions)
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+
+  # Enable for Docker if used
+  - package-ecosystem: "docker"
+    directory: "/"
+    schedule:
+      interval: "weekly"

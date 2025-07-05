@@ -1,0 +1,28 @@
+name: Generate SBOM
+on:
+  release:
+    types: [published]
+
+jobs:
+  cyclone-dx:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Generate SBOM
+        uses: CycloneDX/gh-action-node@v1
+        with:
+          output-format: "json"
+          output-file: "bom.json"
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom
+          path: bom.json
+      - name: Attach to Release
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ github.event.release.upload_url }}
+          asset_path: ./bom.json
+          asset_name: "SBOM_${{ github.sha }}.json"

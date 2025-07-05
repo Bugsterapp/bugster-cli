@@ -1,0 +1,50 @@
+# tests/login_spec.yaml
+name: "Login Functionality Test"
+description: "Validate successful authentication flow"
+baseUrl: "{{config.baseUrl}}"  # Uses your configured http://localhost:3000
+
+scenarios:
+  - name: "Login with valid credentials"
+    steps:
+      - action: "navigate"
+        url: "/login"
+        validate:
+          - title: "Login Page"
+      
+      - action: "fill"
+        target: "#username"  # Update selector to match your UI
+        value: "{{credentials.akabarki76.username}}"
+        
+      - action: "fill"
+        target: "#password"  # Update selector to match your UI
+        value: "{{credentials.akabarki76.password}}"
+        
+      - action: "click"
+        target: "#submit-btn"  # Update selector to match your UI
+        
+      - action: "validate"
+        assertions:
+          - url: "/dashboard"
+          - elementPresent: ".welcome-message"
+          - textContains: ".user-greeting" "Welcome, {{credentials.akabarki76.username}}"
+
+  - name: "Login with invalid credentials"
+    steps:
+      - action: "navigate"
+        url: "/login"
+        
+      - action: "fill"
+        target: "#username"
+        value: "invalid@email.com"
+        
+      - action: "fill"
+        target: "#password"
+        value: "wrong_password"
+        
+      - action: "click"
+        target: "#submit-btn"
+        
+      - action: "validate"
+        assertions:
+          - elementPresent: ".error-message"
+          - textContains: ".error-message" "Invalid credentials"
