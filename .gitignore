@@ -33,6 +33,9 @@ ENV/
 
 # Bugster
 .bugster/
+analysis.json
+analysis_state.json
+project.json
 
 # PyInstaller build files
 *.zip
