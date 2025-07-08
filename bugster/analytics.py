@@ -33,6 +33,14 @@ class PostHogClient:
     """Minimal PostHog client for tracking specific business events."""
     
     def __init__(self):
+        # Fast path for opted-out users - check first before any heavy initialization
+        if self._should_disable_analytics():
+            self.enabled = False
+            self.api_key = None
+            self.host = None
+            self.environment = None
+            return
+            
         self.api_key = libs_settings.posthog_api_key
         self.host = libs_settings.posthog_host
         self.environment = libs_settings.environment.value

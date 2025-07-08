@@ -105,6 +105,13 @@ def print_parallel_safe(
     if silent:
         return
 
+    # Fast path for high concurrency - reduce formatting overhead
+    if max_concurrent > 3 and not verbose and not force_compact:
+        # Only show critical messages in high-concurrency mode
+        if level in ["error", "success"]:
+            console.print(f"[{test_name[:15]}...] {message}")
+        return
+
     if should_show_detailed_logs(max_concurrent, verbose) or force_compact:
         # Detailed mode or explicitly marked for compact mode: show message
         console.print(format_parallel_message(test_name, message, level))

@@ -2,6 +2,7 @@
 
 import asyncio
 import atexit
+import importlib
 import sys
 from typing import Optional
 
@@ -11,7 +12,6 @@ from loguru import logger
 from rich.console import Console
 
 from bugster import __version__
-from bugster.analytics import get_analytics
 from bugster.utils.console_messages import CLIMessages
 
 app = typer.Typer(
@@ -82,6 +82,18 @@ def is_debug_enabled() -> bool:
     return _debug_enabled
 
 
+def lazy_import_analytics():
+    """Lazy import analytics to avoid startup overhead."""
+    try:
+        from bugster.analytics import get_analytics
+        return get_analytics()
+    except ImportError:
+        # Fallback if analytics module is unavailable
+        class NullAnalytics:
+            def flush(self): pass
+        return NullAnalytics()
+
+
 @app.callback()
 def main_callback(
     version: bool = typer.Option(
@@ -102,16 +114,51 @@ def main_callback(
     global _debug_enabled
     _debug_enabled = debug
     configure_logging(debug)
-    analytics = get_analytics()
+    # Lazy load analytics only when needed
+    analytics = lazy_import_analytics()
     atexit.register(analytics.flush)
+
+
+def lazy_init_command():
+    """Lazy-loaded init command."""
+    from bugster.commands.init import init_command
+    return init_command()
 
 
 @app.command()
 def init():
     """Initialize Bugster CLI configuration in your project."""
-    from bugster.commands.init import init_command
+    lazy_init_command()
 
-    init_command()
+
+def lazy_test_command(
+    path,
+    headless,
+    silent,
+    stream_results,
+    output,
+    run_id,
+    base_url,
+    only_affected,
+    max_concurrent,
+    verbose,
+):
+    """Lazy-loaded test command."""
+    from bugster.commands.test import test_command
+    return asyncio.run(
+        test_command(
+            path,
+            headless,
+            silent,
+            stream_results,
+            output,
+            run_id,
+            base_url,
+            only_affected,
+            max_concurrent,
+            verbose,
+        )
+    )
 
 
 def _run_tests(
@@ -145,21 +192,17 @@ def _run_tests(
     verbose: Optional[bool] = typer.Option(False, "--verbose", help="Verbose output"),
 ):
     """Run your Bugster tests."""
-    from bugster.commands.test import test_command
-
-    asyncio.run(
-        test_command(
-            path,
-            headless,
-            silent,
-            stream_results,
-            output,
-            run_id,
-            base_url,
-            only_affected,
-            max_concurrent,
-            verbose,
-        )
+    lazy_test_command(
+        path,
+        headless,
+        silent,
+        stream_results,
+        output,
+        run_id,
+        base_url,
+        only_affected,
+        max_concurrent,
+        verbose,
     )
 
 
@@ -168,34 +211,9 @@ app.command(name="test", help=CLIMessages.get_run_help())(_run_tests)
 app.command(name="run", help=CLIMessages.get_run_help())(_run_tests)
 
 
-def _analyze_codebase(
-    show_logs: bool = typer.Option(
-        False,
-        "--show-logs",
-        help="Show detailed logs during analysis",
-    ),
-    force: bool = typer.Option(
-        True,
-        "-f",
-        "--force",
-        help="Force analysis even if the codebase has already been analyzed",
-    ),
-    page: Optional[str] = typer.Option(
-        None,
-        "--page",
-        help="Generate specs only for specific page files (comma-separated relative file paths). Example: --page 'pages/settings.tsx','pages/auth.tsx'",
-    ),
-    count: Optional[int] = typer.Option(
-        None,
-        "--count",
-        help="Number of test specs to generate per page",
-        min=1,
-        max=30,
-    ),
-):
-    """Analyze your codebase and generate test specs."""
+def lazy_analyze_command(show_logs, force, page, count):
+    """Lazy-loaded analyze command."""
     from pathlib import Path
-
     from bugster.commands.analyze import analyze_command
 
     page_filter = None
@@ -235,7 +253,7 @@ def _analyze_codebase(
 
         page_filter = validated_paths
 
-    analyze_command(
+    return analyze_command(
         options={
             "show_logs": show_logs,
             "force": force,
@@ -245,9 +263,50 @@ def _analyze_codebase(
     )
 
 
+def _analyze_codebase(
+    show_logs: bool = typer.Option(
+        False,
+        "--show-logs",
+        help="Show detailed logs during analysis",
+    ),
+    force: bool = typer.Option(
+        True,
+        "-f",
+        "--force",
+        help="Force analysis even if the codebase has already been analyzed",
+    ),
+    page: Optional[str] = typer.Option(
+        None,
+        "--page",
+        help="Generate specs only for specific page files (comma-separated relative file paths). Example: --page 'pages/settings.tsx','pages/auth.tsx'",
+    ),
+    count: Optional[int] = typer.Option(
+        None,
+        "--count",
+        help="Number of test specs to generate per page",
+        min=1,
+        max=30,
+    ),
+):
+    """Analyze your codebase and generate test specs."""
+    lazy_analyze_command(show_logs, force, page, count)
+
+
 # Register the same function with two different command names
 app.command(name="analyze", help=CLIMessages.get_analyze_help())(_analyze_codebase)
 app.command(name="generate", help=CLIMessages.get_analyze_help())(_analyze_codebase)
+
+
+def lazy_update_command(update_only, suggest_only, delete_only, show_logs, against_default):
+    """Lazy-loaded update command."""
+    from bugster.commands.update import update_command
+    return update_command(
+        update_only=update_only,
+        suggest_only=suggest_only,
+        delete_only=delete_only,
+        show_logs=show_logs,
+        against_default=against_default,
+    )
 
 
 @app.command(help=CLIMessages.get_update_help())
@@ -273,15 +332,13 @@ def update(
     ),
 ):
     """Update your test specs with the latest changes."""
-    from bugster.commands.update import update_command
+    lazy_update_command(update_only, suggest_only, delete_only, show_logs, against_default)
 
-    update_command(
-        update_only=update_only,
-        suggest_only=suggest_only,
-        delete_only=delete_only,
-        show_logs=show_logs,
-        against_default=against_default,
-    )
+
+def lazy_sync_command(branch, pull, push, clean_remote, dry_run, prefer):
+    """Lazy-loaded sync command."""
+    from bugster.commands.sync import sync_command
+    return sync_command(branch, pull, push, clean_remote, dry_run, prefer)
 
 
 @app.command(help=CLIMessages.get_sync_help())
@@ -305,9 +362,13 @@ def sync(
     ),
 ):
     """Sync test cases with team."""
-    from bugster.commands.sync import sync_command
+    lazy_sync_command(branch, pull, push, clean_remote, dry_run, prefer)
 
-    sync_command(branch, pull, push, clean_remote, dry_run, prefer)
+
+def lazy_issues_command(history, save, project_id):
+    """Lazy-loaded issues command."""
+    from bugster.commands.issues import issues_command
+    return issues_command(history=history, save=save, project_id=project_id)
 
 
 @app.command()
@@ -328,9 +389,23 @@ def issues(
     ),
 ):
     """[bold red]Get[/bold red] issues from your Bugster project."""
-    from bugster.commands.issues import issues_command
+    lazy_issues_command(history, save, project_id)
 
-    issues_command(history=history, save=save, project_id=project_id)
+
+def lazy_destructive_command(headless, silent, stream_results, base_url, max_concurrent, verbose, run_id):
+    """Lazy-loaded destructive command."""
+    from bugster.commands.destructive import destructive_command
+    return asyncio.run(
+        destructive_command(
+            headless,
+            silent,
+            stream_results,
+            base_url,
+            max_concurrent,
+            verbose,
+            run_id,
+        )
+    )
 
 
 @app.command(help=CLIMessages.get_destructive_help())
@@ -350,19 +425,7 @@ def destructive(
     ),
 ):
     """Run destructive agents to find potential bugs in changed pages."""
-    from bugster.commands.destructive import destructive_command
-
-    asyncio.run(
-        destructive_command(
-            headless,
-            silent,
-            stream_results,
-            base_url,
-            max_concurrent,
-            verbose,
-            run_id,
-        )
-    )
+    lazy_destructive_command(headless, silent, stream_results, base_url, max_concurrent, verbose, run_id)
 
 
 def main():

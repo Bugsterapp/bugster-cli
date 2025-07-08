@@ -2,6 +2,7 @@
 
 import json
 import tempfile
+from functools import lru_cache
 from pathlib import Path
 from typing import List, Optional
 import uuid
@@ -16,17 +17,39 @@ from bugster.utils.yaml_spec import load_spec
 
 console = Console()
 
+# Cache for configuration to avoid repeated file reads
+_config_cache = None
+_config_cache_mtime = None
+
 
 def load_config() -> Config:
-    """Load configuration from config.yaml."""
+    """Load configuration from config.yaml with caching."""
+    global _config_cache, _config_cache_mtime
+    
     if not CONFIG_PATH.exists():
         console.print(
             "[red]Error: Configuration file not found. Please run 'bugster init' first.[/red]"
         )
         raise typer.Exit(1)
 
+    # Check if we have a cached version and if the file hasn't changed
+    current_mtime = CONFIG_PATH.stat().st_mtime
+    if _config_cache is not None and _config_cache_mtime == current_mtime:
+        return _config_cache
+
+    # Load and cache the configuration
     with open(CONFIG_PATH) as f:
-        return Config(**yaml.safe_load(f))
+        config = Config(**yaml.safe_load(f))
+        _config_cache = config
+        _config_cache_mtime = current_mtime
+        return config
+
+
+def clear_config_cache():
+    """Clear the configuration cache. Useful when config is modified."""
+    global _config_cache, _config_cache_mtime
+    _config_cache = None
+    _config_cache_mtime = None
 
 
 def load_test_files(test_path: Optional[Path] = None) -> List[dict]:
