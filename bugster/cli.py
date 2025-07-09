@@ -107,11 +107,41 @@ def main_callback(
 
 
 @app.command()
-def init():
+def init(
+    api_key: Optional[str] = typer.Option(
+        None, "--api-key", help="Bugster API key (starts with 'bugster_')"
+    ),
+    project_name: Optional[str] = typer.Option(
+        None, "--project-name", help="Name for your project"
+    ),
+    url: Optional[str] = typer.Option(
+        None, "--url", help="Base URL of your application (e.g., http://localhost:3000)"
+    ),
+    user: Optional[str] = typer.Option(
+        None, "--user", help="Username/email for login credentials"
+    ),
+    password: Optional[str] = typer.Option(
+        None, "--password", help="Password for login credentials"
+    ),
+    credential_name: Optional[str] = typer.Option(
+        None, "--credential-name", help="Name for the credential entry (default: admin)"
+    ),
+    no_auth: bool = typer.Option(
+        False, "--no-auth", help="Skip authentication if API key is already configured"
+    ),
+):
     """Initialize Bugster CLI configuration in your project."""
     from bugster.commands.init import init_command
 
-    init_command()
+    init_command(
+        api_key=api_key,
+        project_name=project_name,
+        url=url,
+        user=user,
+        password=password,
+        credential_name=credential_name,
+        no_auth=no_auth,
+    )
 
 
 def _run_tests(

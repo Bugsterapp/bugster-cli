@@ -12,7 +12,7 @@ from rich.prompt import Confirm, Prompt
 
 from bugster.analytics import track_command
 from bugster.clients.http_client import BugsterHTTPClient
-from bugster.commands.auth import auth_command
+from bugster.commands.auth import auth_command, validate_api_key
 from bugster.constants import (
     CONFIG_PATH,
     TESTS_DIR,
@@ -87,14 +87,34 @@ def generate_project_id(project_name: str) -> str:
 
 
 @track_command("init")
-def init_command():
+def init_command(
+    api_key: str = None,
+    project_name: str = None,
+    url: str = None,
+    user: str = None,
+    password: str = None,
+    credential_name: str = None,
+    no_auth: bool = False,
+):
     """Initialize Bugster CLI configuration."""
     InitMessages.welcome()
 
-    # First check if user is authenticated
-    api_key = get_api_key()
-
-    if not api_key:
+    # Handle API key authentication
+    current_api_key = get_api_key()
+    
+    # Use provided API key or get from storage
+    if api_key:
+        # Validate provided API key
+        if not validate_api_key(api_key):
+            console.print("[red]Invalid API key. Please check the format and try again.[/red]")
+            raise typer.Exit(1)
+        
+        # Save the provided API key
+        from bugster.utils.user_config import save_api_key
+        save_api_key(api_key)
+        current_api_key = api_key
+        console.print("[green]✓ API key saved successfully[/green]")
+    elif not current_api_key and not no_auth:
         logger.info("API key not found, running auth command...")
         InitMessages.auth_required()
 
@@ -102,13 +122,16 @@ def init_command():
         auth_command()
 
         # Check if auth was successful
-        api_key = get_api_key()
+        current_api_key = get_api_key()
 
-        if not api_key:
+        if not current_api_key:
             InitMessages.auth_failed()
             raise typer.Exit(1)
 
         InitMessages.auth_success()
+    elif not current_api_key and no_auth:
+        console.print("[red]No API key configured and --no-auth flag provided. Please provide --api-key or run without --no-auth.[/red]")
+        raise typer.Exit(1)
 
     # Check for existing configuration
     config_exists, existing_config_path = find_existing_config()
@@ -128,7 +151,13 @@ def init_command():
 
     # Project setup
     InitMessages.project_setup()
-    project_name = Prompt.ask("🏷️  Project name", default=Path.cwd().name)
+    
+    # Use provided project name or prompt for it
+    if project_name is None:
+        project_name = Prompt.ask("🏷️  Project name", default=Path.cwd().name)
+    else:
+        console.print(f"🏷️  Project name: {project_name}")
+        
     project_path = ""
     with contextlib.suppress(Exception):
         project_path = get_git_prefix_path()
@@ -136,7 +165,7 @@ def init_command():
     # Create project via API
     try:
         with BugsterHTTPClient() as client:
-            client.set_headers({"x-api-key": api_key})
+            client.set_headers({"x-api-key": current_api_key})
             InitMessages.creating_project()
 
             project_data = client.post(
@@ -155,26 +184,59 @@ def init_command():
         project_id = generate_project_id(project_name)
 
     InitMessages.show_project_id(project_id)
-    base_url = Prompt.ask("\n🌐 Application URL", default="http://localhost:3000")
+    
+    # Use provided URL or prompt for it
+    if url is None:
+        base_url = Prompt.ask("\n🌐 Application URL", default="http://localhost:3000")
+    else:
+        base_url = url
+        console.print(f"🌐 Application URL: {base_url}")
 
     # Credentials setup
     InitMessages.auth_setup()
     credentials = []
 
-    if (
-        Prompt.ask(
-            "➕ Would you like to add custom login credentials? (y/n)", default="y"
-        ).lower()
-        == "y"
-    ):
-        identifier = Prompt.ask(
-            "👤 Credential name",
-            default="admin",
-        )
-        username = Prompt.ask("📧 Username/Email")
-        password = Prompt.ask("🔒 Password", password=True)
+    # Determine if we should use custom credentials
+    use_custom_credentials = False
+    
+    if user is not None and password is not None:
+        # Both user and password provided via flags
+        use_custom_credentials = True
+        console.print("✓ Using provided login credentials")
+    elif user is not None or password is not None:
+        # Only one of user/password provided - this is an error
+        console.print("[red]Error: Both --user and --password must be provided together.[/red]")
+        raise typer.Exit(1)
+    else:
+        # No credentials provided via flags, prompt interactively
+        if (
+            Prompt.ask(
+                "➕ Would you like to add custom login credentials? (y/n)", default="y"
+            ).lower()
+            == "y"
+        ):
+            use_custom_credentials = True
 
-        credentials.append(create_credential_entry(identifier, username, password))
+    if use_custom_credentials:
+        # Use provided values or prompt for them
+        if user is not None and password is not None:
+            # Values provided via flags
+            identifier = credential_name or "admin"
+            username = user
+            password_value = password
+            console.print(f"👤 Credential name: {identifier}")
+            console.print(f"📧 Username/Email: {username}")
+            console.print("🔒 Password: [hidden]")
+        else:
+            # Interactive mode
+            identifier = Prompt.ask(
+                "👤 Credential name",
+                default="admin",
+            )
+            username = Prompt.ask("📧 Username/Email")
+            password_value = Prompt.ask("🔒 Password", password=True)
+
+        credentials.append(create_credential_entry(identifier, username, password_value))
         InitMessages.credential_added()
     else:
         credentials.append(create_credential_entry())
