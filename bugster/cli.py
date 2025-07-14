@@ -1,20 +1,16 @@
 """Command-line interface for Bugster."""
 
-import asyncio
-import atexit
-import sys
 from typing import Optional
 
-import click
-import typer
+from click import Choice
 from loguru import logger
 from rich.console import Console
+from typer import Argument, BadParameter, Exit, Option, Typer
 
 from bugster import __version__
-from bugster.analytics import get_analytics
 from bugster.utils.console_messages import CLIMessages
 
-app = typer.Typer(
+app = Typer(
     name="bugster",
     add_completion=False,
     rich_markup_mode="rich",
@@ -37,11 +33,13 @@ def version_callback(value: bool):
             else:
                 console.print()
 
-        raise typer.Exit()
+        raise Exit()
 
 
 def configure_logging(debug: bool):
     """Configure loguru logging based on debug flag."""
+    import sys
+
     # Remove all existing handlers
     logger.remove()
 
@@ -84,7 +82,7 @@ def is_debug_enabled() -> bool:
 
 @app.callback()
 def main_callback(
-    version: bool = typer.Option(
+    version: bool = Option(
         None,
         "--version",
         "-v",
@@ -92,13 +90,17 @@ def main_callback(
         is_eager=True,
         help="Print the version and exit",
     ),
-    debug: bool = typer.Option(
+    debug: bool = Option(
         False,
         "--debug",
         help="Enable debug logging",
     ),
 ):
     """🐛 Bugster CLI - AI-powered end-to-end testing for web applications"""
+    import atexit
+
+    from bugster.analytics import get_analytics
+
     global _debug_enabled
     _debug_enabled = debug
     configure_logging(debug)
@@ -108,35 +110,39 @@ def main_callback(
 
 @app.command()
 def init(
-    api_key: Optional[str] = typer.Option(
+    api_key: Optional[str] = Option(
         None, "--api-key", help="Bugster API key (starts with 'bugster_')"
     ),
-    project_name: Optional[str] = typer.Option(
+    project_name: Optional[str] = Option(
         None, "--project-name", help="Name for your project"
     ),
-    url: Optional[str] = typer.Option(
+    url: Optional[str] = Option(
         None, "--url", help="Base URL of your application (e.g., http://localhost:3000)"
     ),
-    user: Optional[str] = typer.Option(
+    user: Optional[str] = Option(
         None, "--user", help="Username/email for login credentials"
     ),
-    password: Optional[str] = typer.Option(
+    password: Optional[str] = Option(
         None, "--password", help="Password for login credentials"
     ),
-    credential_name: Optional[str] = typer.Option(
+    credential_name: Optional[str] = Option(
         None, "--credential-name", help="Name for the credential entry (default: admin)"
     ),
-    no_auth: bool = typer.Option(
+    no_auth: bool = Option(
         False, "--no-auth", help="Skip authentication if API key is already configured"
     ),
-    no_credentials: bool = typer.Option(
+    no_credentials: bool = Option(
         False, "--no-credentials", help="Skip credential setup entirely"
     ),
-    bypass_protection: Optional[str] = typer.Option(
-        None, "--bypass-protection", help="Protection bypass secret for the specified platform"
+    bypass_protection: Optional[str] = Option(
+        None,
+        "--bypass-protection",
+        help="Protection bypass secret for the specified platform",
     ),
-    platform: str = typer.Option(
-        "vercel", "--platform", help="Platform type (vercel or railway, default: vercel)"
+    platform: str = Option(
+        "vercel",
+        "--platform",
+        help="Platform type (vercel or railway, default: vercel)",
     ),
 ):
     """Initialize Bugster CLI configuration in your project."""
@@ -157,36 +163,38 @@ def init(
 
 
 def _run_tests(
-    path: Optional[str] = typer.Argument(None, help="Path to test file or directory"),
-    headless: Optional[bool] = typer.Option(
+    path: Optional[str] = Argument(None, help="Path to test file or directory"),
+    headless: Optional[bool] = Option(
         False, "--headless", help="Run tests in headless mode"
     ),
-    silent: Optional[bool] = typer.Option(
+    silent: Optional[bool] = Option(
         False, "--silent", "-s", help="Run in silent mode (less verbose output)"
     ),
-    stream_results: bool = typer.Option(
+    stream_results: bool = Option(
         True,
         "--stream-results/--no-stream-results",
         help="Stream test results. Enabled by default",
     ),
-    output: Optional[str] = typer.Option(
+    output: Optional[str] = Option(
         None, "--output", help="Save test results to JSON file"
     ),
-    run_id: Optional[str] = typer.Option(
+    run_id: Optional[str] = Option(
         None, "--run-id", help="Run ID to associate with the test run"
     ),
-    base_url: Optional[str] = typer.Option(
+    base_url: Optional[str] = Option(
         None, "--base-url", help="Base URL to use for the test run"
     ),
-    only_affected: Optional[bool] = typer.Option(
+    only_affected: Optional[bool] = Option(
         None, "--only-affected", help="Only run tests for affected files or directories"
     ),
-    max_concurrent: Optional[int] = typer.Option(
+    max_concurrent: Optional[int] = Option(
         5, "--max-concurrent", help="Maximum number of concurrent tests"
     ),
-    verbose: Optional[bool] = typer.Option(False, "--verbose", help="Verbose output"),
+    verbose: Optional[bool] = Option(False, "--verbose", help="Verbose output"),
 ):
     """Run your Bugster tests."""
+    import asyncio
+
     from bugster.commands.test import test_command
 
     asyncio.run(
@@ -211,23 +219,23 @@ app.command(name="run", help=CLIMessages.get_run_help())(_run_tests)
 
 
 def _analyze_codebase(
-    show_logs: bool = typer.Option(
+    show_logs: bool = Option(
         False,
         "--show-logs",
         help="Show detailed logs during analysis",
     ),
-    force: bool = typer.Option(
+    force: bool = Option(
         True,
         "-f",
         "--force",
         help="Force analysis even if the codebase has already been analyzed",
     ),
-    page: Optional[str] = typer.Option(
+    page: Optional[str] = Option(
         None,
         "--page",
         help="Generate specs only for specific page files (comma-separated relative file paths). Example: --page 'pages/settings.tsx','pages/auth.tsx'",
     ),
-    count: Optional[int] = typer.Option(
+    count: Optional[int] = Option(
         None,
         "--count",
         help="Number of test specs to generate per page",
@@ -257,19 +265,19 @@ def _analyze_codebase(
                     print(f"Absolute path converted to relative: {file_path}")
                 except ValueError:
                     # Path is not within the project directory.
-                    raise typer.BadParameter(
+                    raise BadParameter(
                         f"Absolute path '{path_str}' is outside the project directory."
                     )
 
             # Validate each path exists
             if not file_path.exists():
-                raise typer.BadParameter(f"File not found: {file_path}")
+                raise BadParameter(f"File not found: {file_path}")
 
             if not file_path.is_file():
-                raise typer.BadParameter(f"Path is not a file: {file_path}")
+                raise BadParameter(f"Path is not a file: {file_path}")
 
             if file_path.suffix not in [".js", ".jsx", ".ts", ".tsx"]:
-                raise typer.BadParameter(
+                raise BadParameter(
                     f"Invalid file type: {file_path}. Must be a JavaScript/TypeScript file."
                 )
 
@@ -294,21 +302,21 @@ app.command(name="generate", help=CLIMessages.get_analyze_help())(_analyze_codeb
 
 @app.command(help=CLIMessages.get_update_help())
 def update(
-    update_only: bool = typer.Option(
+    update_only: bool = Option(
         False, help="Only update existing specs, no suggestions or deletes"
     ),
-    suggest_only: bool = typer.Option(
+    suggest_only: bool = Option(
         False, help="Only suggest new specs, no updates or deletes"
     ),
-    delete_only: bool = typer.Option(
+    delete_only: bool = Option(
         False, help="Only delete specs, no updates or suggestions"
     ),
-    show_logs: bool = typer.Option(
+    show_logs: bool = Option(
         False,
         "--show-logs",
         help="Show detailed logs during analysis",
     ),
-    against_default: bool = typer.Option(
+    against_default: bool = Option(
         False,
         "--against-default",
         help="Compare against the default branch instead of HEAD",
@@ -328,22 +336,20 @@ def update(
 
 @app.command(help=CLIMessages.get_sync_help())
 def sync(
-    branch: Optional[str] = typer.Option(
+    branch: Optional[str] = Option(
         None, help="Branch to sync with (defaults to current git branch or 'main')"
     ),
-    pull: bool = typer.Option(False, help="Only pull specs from remote"),
-    push: bool = typer.Option(False, help="Only push specs to remote"),
-    clean_remote: bool = typer.Option(
+    pull: bool = Option(False, help="Only pull specs from remote"),
+    push: bool = Option(False, help="Only push specs to remote"),
+    clean_remote: bool = Option(
         False, help="Delete remote specs that don't exist locally"
     ),
-    dry_run: bool = typer.Option(
-        False, help="Show what would happen without making changes"
-    ),
-    prefer: str = typer.Option(
+    dry_run: bool = Option(False, help="Show what would happen without making changes"),
+    prefer: str = Option(
         None,
         "--prefer",
         help="Prefer 'local' or 'remote' when resolving conflicts",
-        click_type=click.Choice(["local", "remote"]),
+        click_type=Choice(["local", "remote"]),
     ),
 ):
     """Sync test cases with team."""
@@ -354,15 +360,15 @@ def sync(
 
 @app.command()
 def issues(
-    history: bool = typer.Option(
+    history: bool = Option(
         False,
         "--history",
         help="Get issues from the last week. If more than 10 issues are found, they will be saved to .bugster/issues directory",  # noqa: E501
     ),
-    save: bool = typer.Option(
+    save: bool = Option(
         False, "--save", "-s", help="Save issues to .bugster/issues directory"
     ),
-    project_id: Optional[str] = typer.Option(
+    project_id: Optional[str] = Option(
         None,
         "--project-id",
         "-p",
@@ -377,21 +383,23 @@ def issues(
 
 @app.command(help=CLIMessages.get_destructive_help())
 def destructive(
-    headless: bool = typer.Option(False, help="Run agents in headless mode"),
-    silent: bool = typer.Option(False, help="Run agents silently"),
-    stream_results: bool = typer.Option(
+    headless: bool = Option(False, help="Run agents in headless mode"),
+    silent: bool = Option(False, help="Run agents silently"),
+    stream_results: bool = Option(
         False, "--stream-results", help="Stream destructive results as they complete"
     ),
-    base_url: Optional[str] = typer.Option(None, help="Override base URL from config"),
-    max_concurrent: Optional[int] = typer.Option(
+    base_url: Optional[str] = Option(None, help="Override base URL from config"),
+    max_concurrent: Optional[int] = Option(
         None, help="Maximum number of concurrent agents (default: 3)"
     ),
-    verbose: bool = typer.Option(False, help="Show detailed agent execution logs"),
-    run_id: Optional[str] = typer.Option(
+    verbose: bool = Option(False, help="Show detailed agent execution logs"),
+    run_id: Optional[str] = Option(
         None, "--run-id", help="Run ID to associate with the destructive test run"
     ),
 ):
     """Run destructive agents to find potential bugs in changed pages."""
+    import asyncio
+
     from bugster.commands.destructive import destructive_command
 
     asyncio.run(
