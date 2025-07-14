@@ -86,7 +86,7 @@ jobs:
 
       - name: Build executable
         run: |
-          nuitka --onefile --onefile-tempdir-spec="{CACHE_DIR}/bugster/${{ needs.validate.outputs.version }}" --include-package=bugster --output-dir=dist bugster
+          nuitka --onefile --onefile-tempdir-spec="{CACHE_DIR}/bugster/${{ needs.validate.outputs.version }}" --include-package=bugster --output-dir=dist --assume-yes-for-downloads bugster
 
       - name: Rename executable for upload
         shell: bash
