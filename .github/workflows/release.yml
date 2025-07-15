@@ -75,7 +75,6 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install nuitka
           pip install -e .
 
       - name: Inject configuration
@@ -84,9 +83,15 @@ jobs:
         run: |
           python scripts/inject_config.py -env ${{ needs.validate.outputs.environment }} -v ${{ needs.validate.outputs.version }}
 
-      - name: Build executable
-        run: |
-          nuitka --onefile --onefile-tempdir-spec="{CACHE_DIR}/bugster/${{ needs.validate.outputs.version }}" --include-package=bugster --output-dir=dist --assume-yes-for-downloads bugster
+      - name: Build executable with Nuitka
+        uses: Nuitka/Nuitka-Action@main
+        with:
+          nuitka-version: main
+          script-name: bugster
+          mode: onefile
+          onefile-tempdir-spec: "{CACHE_DIR}/bugster/${{ needs.validate.outputs.version }}"
+          include-package: bugster
+          output-dir: dist
 
       - name: Rename executable for upload
         shell: bash
