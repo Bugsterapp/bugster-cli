@@ -29,7 +29,6 @@ def _ordered_dict_representer(dumper: yaml.Dumper, data: OrderedDict):
 
 yaml.add_representer(OrderedDict, _ordered_dict_representer)
 
-
 def has_yaml_test_cases() -> bool:
     """Check if there are any YAML test case files in the TESTS_DIR."""
     if not TESTS_DIR.exists():
@@ -45,7 +44,6 @@ def has_yaml_test_cases() -> bool:
             return True
 
     return False
-
 
 def get_or_create_folder(folder_name: str) -> str:
     """Get or create a folder with a given name."""
@@ -88,7 +86,7 @@ class TestCasesService:
 
         if not self.analysis_json_path:
             raise BugsterError("Analysis JSON path is not set")
-
+ 
         if not os.path.exists(self.analysis_json_path):
             raise BugsterError(
                 "Analysis JSON file not found, execute bugster analyze first"
@@ -262,7 +260,6 @@ class TestCasesService:
             raise BugsterError("Test cases not found")
 
         logger.info("Saving test cases as YAML files...")
-
         try:
             is_first_run = not has_yaml_test_cases()
 
@@ -275,7 +272,7 @@ class TestCasesService:
                     )
         except Exception as err:
             logger.error("Error updating onboarding status: {}", err)
-
+            
         for test_case in test_cases:
             self._save_test_case_as_yaml(test_case=test_case)
 

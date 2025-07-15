@@ -44,7 +44,7 @@ class HTTPClient:
         endpoint: str,
         data: Optional[Dict[str, Any]] = None,
         json: Optional[Dict[str, Any]] = None,
-        **kwargs,
+        **kwargs, 
     ) -> requests.Response:
         """Make a PATCH request."""
         return self._make_request("PATCH", endpoint, data=data, json=json, **kwargs)

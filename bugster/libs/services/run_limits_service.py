@@ -158,6 +158,6 @@ def get_test_limit_from_config() -> Optional[int]:
     Returns:
         Maximum number of tests to run, or None if no limit
     """
-    return 5
+    return 10
 
 

@@ -162,6 +162,19 @@ def init(
     )
 
 
+@app.command()
+def auth(
+    api_key: Optional[str] = typer.Option(
+        None, "--api-key", help="Bugster API key to set (starts with 'bugster_')"
+    ),
+    clear: bool = typer.Option(False, "--clear", help="Clear the existing API key"),
+):
+    """Authenticate with Bugster API key."""
+    from bugster.commands.auth import auth_command
+
+    auth_command(api_key=api_key, clear=clear)
+
+
 def _run_tests(
     path: Optional[str] = Argument(None, help="Path to test file or directory"),
     headless: Optional[bool] = Option(
@@ -188,7 +201,7 @@ def _run_tests(
         None, "--only-affected", help="Only run tests for affected files or directories"
     ),
     max_concurrent: Optional[int] = Option(
-        5, "--max-concurrent", help="Maximum number of concurrent tests"
+        5, "--max-concurrent", "--parallel", help="Maximum number of concurrent tests"
     ),
     verbose: Optional[bool] = Option(False, "--verbose", help="Verbose output"),
 ):
@@ -390,7 +403,10 @@ def destructive(
     ),
     base_url: Optional[str] = Option(None, help="Override base URL from config"),
     max_concurrent: Optional[int] = Option(
-        None, help="Maximum number of concurrent agents (default: 3)"
+        None,
+        "--max-concurrent",
+        "--parallel",
+        help="Maximum number of concurrent agents (default: 3)",
     ),
     verbose: bool = Option(False, help="Show detailed agent execution logs"),
     run_id: Optional[str] = Option(
