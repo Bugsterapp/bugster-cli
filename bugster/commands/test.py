@@ -389,8 +389,19 @@ async def execute_test(test: Test, config: Config, **kwargs) -> NamedTestResult:
         )
 
     finally:
-        await ws_client.close()
-        await mcp_client.close()
+        # Wrap client cleanup in try-except to prevent cleanup exceptions
+        # from affecting the test result
+        try:
+            await ws_client.close()
+        except Exception as e:
+            # Log the exception but don't let it bubble up
+            logger.warning(f"Error closing WebSocket client for test {test.name}: {e}")
+
+        try:
+            await mcp_client.close()
+        except Exception as e:
+            # Log the exception but don't let it bubble up
+            logger.warning(f"Error closing MCP client for test {test.name}: {e}")
 
 
 async def _execute_test_loop(
