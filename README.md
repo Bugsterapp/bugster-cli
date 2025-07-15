@@ -24,13 +24,13 @@ Bugster CLI generate comprehensive test specs for your web applications and keep
 🎯 **Intelligent Updates**: Automatically update test specs when your code changes  
 🚀 **Cross-Platform**: Works on Windows, macOS, and Linux  
 🌐 **Framework Support**: Currently supports Next.js applications  
-📊 **Dashboard Integration**: Stream results to the Bugster dashboard for team visibility  
+📊 **Dashboard Integration**: Stream results to the Bugster dashboard for team visibility
 
 ## Installation
 
 ### Automated Installation (Recommended)
 
-Our installers automatically check for and install dependencies (Python 3.10+, Node.js 18+, Playwright).
+Our installers automatically check for and install dependencies (Node.js 18+, Playwright).
 
 #### macOS/Linux
 
@@ -43,33 +43,22 @@ curl -sSL https://github.com/Bugsterapp/bugster-cli/releases/latest/download/ins
 1. Download [install.bat](https://github.com/Bugsterapp/bugster-cli/releases/latest/download/install.bat)
 2. Right-click and select "Run as administrator"
 
-### Manual Installation
-
-If you already have Python 3.10+ and Node.js 18+ installed:
-
-```bash
-curl -sSL https://raw.githubusercontent.com/Bugsterapp/bugster-cli/main/scripts/install.py | python3
-```
-
-### Prerequisites
-
-- **Python 3.10+**: Required for the CLI core functionality
-- **Node.js 18+**: Required for Playwright browser automation
-- **Playwright**: Automatically installed during setup
-
 ## Quick Start
 
 1. **Initialize your project**
+
    ```bash
    bugster init
    ```
 
 2. **Generate test cases**
+
    ```bash
    bugster generate
    ```
 
 3. **Run your tests**
+
    ```bash
    bugster run
    ```
@@ -123,6 +112,7 @@ Options:
 ```
 
 **Examples:**
+
 ```bash
 # Run all tests
 bugster run
@@ -168,6 +158,7 @@ Options:
 ```
 
 **Examples:**
+
 ```bash
 # Sync with main branch
 bugster sync --branch main
@@ -226,6 +217,7 @@ bugster auth
 ```
 
 This will guide you through:
+
 1. Opening the Bugster dashboard
 2. Copying your API key
 3. Configuring authentication locally
@@ -319,7 +311,6 @@ Bugster CLI applies intelligent test limits to ensure efficient execution:
 
 ## Requirements
 
-- **Python**: 3.10 or higher
 - **Node.js**: 18 or higher
 - **Operating System**: Windows 10+, macOS 10.15+, or Linux
 - **Browser**: Chrome/Chromium (automatically installed via Playwright)

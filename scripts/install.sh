@@ -1,5 +1,6 @@
 #!/bin/bash
-# Bugster CLI installer wrapper for Unix systems (macOS/Linux)
+# Bugster CLI installer for Unix systems (macOS/Linux) - No Python Required
+# Combines functionality of install.sh + install.py for compiled binaries
 
 # ANSI color codes
 RED='\033[0;31m'
@@ -7,6 +8,12 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
+
+# Constants
+GITHUB_REPO="https://github.com/Bugsterapp/bugster-cli"
+GITHUB_API="https://api.github.com/repos/Bugsterapp/bugster-cli"
+# TODO: keep this automatically synced with the last bugster version
+DEFAULT_VERSION="v0.3.25"
 
 # Print functions
 print_step() {
@@ -28,12 +35,11 @@ print_warning() {
 # Help message
 show_help() {
     cat << EOF
-Bugster CLI Installer
+Bugster CLI Installer (No Python Required)
 
 This installer will automatically install:
-- Python 3.10+ (installs Python 3.12 if needed)
 - Node.js 18+ (installs Node.js 18 if needed)
-- Bugster CLI
+- Bugster CLI (compiled binary)
 
 Usage: 
     ./install.sh [options]
@@ -89,24 +95,6 @@ fi
 
 print_step "Detected operating system: $OS"
 
-# Function to find best Python version
-find_best_python() {
-    for py_cmd in python3.12 python3.11 python3.10 python3 python; do
-        if command -v "$py_cmd" &>/dev/null; then
-            version=$($py_cmd --version 2>&1 | grep -oE '[0-9]+\.[0-9]+')
-            # Parse major and minor version numbers
-            major=$(echo "$version" | cut -d. -f1)
-            minor=$(echo "$version" | cut -d. -f2)
-            # Check if version >= 3.10
-            if [[ $major -gt 3 ]] || [[ $major -eq 3 && $minor -ge 10 ]]; then
-                echo "$py_cmd"
-                return 0
-            fi
-        fi
-    done
-    return 1
-}
-
 # Function to check Node.js version
 check_node_version() {
     if command -v node &>/dev/null; then
@@ -117,174 +105,6 @@ check_node_version() {
         fi
     fi
     return 1
-}
-
-# Function to update shell config
-update_shell_config() {
-    local config_file="$1"
-    local shell_type="$2"
-    local arch_type="$3"
-    local python_path="$4"
-    
-    # Create backup
-    cp "$config_file" "${config_file}.bak"
-    
-    # Add Python configuration
-    cat << EOF >> "$config_file"
-
-# Bugster CLI Python configuration
-if [ -d "$python_path" ]; then
-    export PATH="$python_path:\$PATH"
-    alias python="python3.12"
-    alias python3="python3.12"
-    alias pip="python3.12 -m pip"
-    alias pip3="python3.12 -m pip"
-fi
-EOF
-    
-    if [[ "$OS" == "macOS" ]]; then
-        # Add Homebrew paths based on architecture
-        if [[ "$arch_type" == "arm64" ]]; then
-            echo 'export PATH="/opt/homebrew/bin:$PATH"' >> "$config_file"
-        else
-            echo 'export PATH="/usr/local/bin:$PATH"' >> "$config_file"
-        fi
-    fi
-    
-    print_success "✅ Updated shell configuration in $config_file"
-    print_warning "Please run 'source $config_file' to apply changes"
-}
-
-install_python_macos() {
-    print_step "Installing Python 3.12 on macOS..."
-    
-    # Detect architecture
-    local arch_type
-    arch_type=$(uname -m)
-    
-    # Check if Homebrew is installed
-    if ! command -v brew &>/dev/null; then
-        print_step "Installing Homebrew first..."
-        /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-        
-        # Add Homebrew to PATH temporarily
-        if [[ "$arch_type" == "arm64" ]]; then
-            eval "$(/opt/homebrew/bin/brew shellenv)"
-        else
-            eval "$(/usr/local/bin/brew shellenv)"
-        fi
-    fi
-    
-    print_step "Installing Python 3.12 via Homebrew..."
-    brew install python@3.12
-    
-    # Get Python installation path
-    local python_path
-    if [[ "$arch_type" == "arm64" ]]; then
-        python_path="/opt/homebrew/opt/python@3.12/bin"
-    else
-        python_path="/usr/local/opt/python@3.12/bin"
-    fi
-    
-    # Update shell configuration
-    local shell_type="${SHELL##*/}"
-    local config_file
-    
-    case "$shell_type" in
-        zsh)
-            config_file="$HOME/.zshrc"
-            ;;
-        bash)
-            if [[ -f "$HOME/.bash_profile" ]]; then
-                config_file="$HOME/.bash_profile"
-            else
-                config_file="$HOME/.bashrc"
-            fi
-            ;;
-        *)
-            config_file="$HOME/.profile"
-            ;;
-    esac
-    
-    update_shell_config "$config_file" "$shell_type" "$arch_type" "$python_path"
-    
-    # Verify Python installation
-    if command -v python3.12 &>/dev/null; then
-        print_success "✅ Python 3.12 installed successfully!"
-    else
-        print_error "❌ Python 3.12 installation failed"
-        exit 1
-    fi
-}
-
-install_python_linux() {
-    print_step "Installing Python 3.12 on Linux..."
-    
-    local python_path="/usr/local/bin"
-    local install_cmd=""
-    local pkg_manager=""
-    
-    # Detect package manager and prepare installation command
-    if command -v apt-get &>/dev/null; then
-        pkg_manager="apt"
-        install_cmd="sudo apt-get update && sudo apt-get install -y software-properties-common && sudo add-apt-repository -y ppa:deadsnakes/ppa && sudo apt-get install -y python3.12 python3.12-venv python3.12-distutils"
-    elif command -v dnf &>/dev/null; then
-        pkg_manager="dnf"
-        install_cmd="sudo dnf install -y python3.12 python3.12-pip"
-    elif command -v yum &>/dev/null; then
-        pkg_manager="yum"
-        install_cmd="sudo yum install -y epel-release && sudo yum install -y python3.12"
-    elif command -v pacman &>/dev/null; then
-        pkg_manager="pacman"
-        install_cmd="sudo pacman -Sy --noconfirm python python-pip"
-    elif command -v zypper &>/dev/null; then
-        pkg_manager="zypper"
-        install_cmd="sudo zypper install -y python312 python312-pip"
-    else
-        print_error "❌ Unsupported package manager. Please install Python 3.12 manually."
-        exit 1
-    fi
-    
-    print_step "Using $pkg_manager to install Python 3.12..."
-    eval "$install_cmd"
-    
-    # Set up alternatives system
-    if [[ "$pkg_manager" == "apt" || "$pkg_manager" == "yum" || "$pkg_manager" == "dnf" || "$pkg_manager" == "zypper" ]]; then
-        sudo update-alternatives --install /usr/bin/python python /usr/bin/python3.12 1
-        sudo update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.12 1
-        sudo update-alternatives --set python /usr/bin/python3.12
-        sudo update-alternatives --set python3 /usr/bin/python3.12
-    fi
-    
-    # Update shell configuration
-    local shell_type="${SHELL##*/}"
-    local config_file
-    
-    case "$shell_type" in
-        zsh)
-            config_file="$HOME/.zshrc"
-            ;;
-        bash)
-            if [[ -f "$HOME/.bash_profile" ]]; then
-                config_file="$HOME/.bash_profile"
-            else
-                config_file="$HOME/.bashrc"
-            fi
-            ;;
-        *)
-            config_file="$HOME/.profile"
-            ;;
-    esac
-    
-    update_shell_config "$config_file" "$shell_type" "" "$python_path"
-    
-    # Verify Python installation
-    if command -v python3.12 &>/dev/null; then
-        print_success "✅ Python 3.12 installed successfully!"
-    else
-        print_error "❌ Python 3.12 installation failed"
-        exit 1
-    fi
 }
 
 # Function to install Node.js on macOS
@@ -370,120 +190,379 @@ install_node_linux() {
     fi
 }
 
-# Check for Python version and install if needed
-check_python_version() {
-    local version=$1
-    if [[ $version =~ ^Python\ 3\.([0-9]+) ]]; then
-        local minor=${BASH_REMATCH[1]}
-        if (( minor >= 10 )); then
-            return 0
-        fi
+# Function to validate version format
+validate_version() {
+    local version="$1"
+    if [[ "$version" == "latest" ]]; then
+        return 0
     fi
-    return 1
+    if [[ ! "$version" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-beta\.[0-9]+|-rc\.[0-9]+|-alpha\.[0-9]+)?$ ]]; then
+        print_error "Invalid version format. Examples of valid versions:"
+        print_error "  - v0.2.8"
+        print_error "  - v0.2.8-beta.1"
+        print_error "  - v0.2.8-rc.1"
+        print_error "  - v0.2.8-alpha.1"
+        print_error "  - latest"
+        return 1
+    fi
+    return 0
 }
 
-# Check for Node.js version and install if needed
-print_step "Checking Node.js installation..."
-if check_node_version; then
-    node_version=$(node --version)
-    print_success "✅ Node.js $node_version is installed and meets requirements"
-else
-    if command -v node &>/dev/null; then
-        node_version=$(node --version)
-        print_error "❌ Node.js 18 or higher is required (found $node_version)"
-    else
-        print_error "❌ Node.js is not installed"
-    fi
+# Function to get latest version from GitHub
+get_latest_version() {
+    local latest_version
+    latest_version=$(curl -s "${GITHUB_API}/releases/latest" | grep '"tag_name"' | sed -E 's/.*"tag_name": "([^"]+)".*/\1/')
     
-    if [[ "$AUTO_YES" == "true" ]]; then
-        choice="y"
+    if [[ -n "$latest_version" ]]; then
+        echo "$latest_version"
     else
-        print_warning "Would you like to install Node.js 18? (y/n)"
-        read -r choice
+        echo "$DEFAULT_VERSION"
     fi
+}
+
+# Function to check if version exists
+check_version_exists() {
+    local version="$1"
+    local status_code
+    status_code=$(curl -s -o /dev/null -w "%{http_code}" "${GITHUB_API}/releases/tags/${version}")
+    if [[ "$status_code" == "200" ]]; then
+        return 0
+    else
+        return 1
+    fi
+}
+
+# Function to detect platform and architecture
+detect_platform() {
+    local system="$1"
+    local machine=$(uname -m)
     
-    if [[ "$choice" == "y" || "$choice" == "Y" ]]; then
-        if [[ "$OS" == "macOS" ]]; then
-            install_node_macos
+    if [[ "$system" == "macOS" ]]; then
+        if [[ "$machine" == "x86_64" || "$machine" == "amd64" ]]; then
+            echo "bugster-macos-intel.zip"
+        elif [[ "$machine" == "arm64" || "$machine" == "aarch64" ]]; then
+            echo "bugster-macos-arm64.zip"
         else
-            install_node_linux
+            print_warning "Unknown macOS architecture: $machine, defaulting to Intel"
+            echo "bugster-macos-intel.zip"
         fi
+    elif [[ "$system" == "Linux" ]]; then
+        echo "bugster-linux.zip"
     else
-        print_error "Please install Node.js 18 or higher manually and try again."
+        print_error "Unsupported platform: $system"
         exit 1
     fi
-fi
+}
 
-# Find best available Python version
-best_python=$(find_best_python)
-if [[ -n "$best_python" ]]; then
-    version=$($best_python --version 2>&1)
-    if check_python_version "$version"; then
-        print_success "✅ Python $version is installed, continuing with installation..."
+# Function to download file with progress
+download_with_progress() {
+    local url="$1"
+    local destination="$2"
+    
+    if command -v curl &>/dev/null; then
+        curl -L --progress-bar "$url" -o "$destination"
+        return $?
+    elif command -v wget &>/dev/null; then
+        wget --progress=bar "$url" -O "$destination"
+        return $?
     else
-        print_error "❌ Python 3.10 or higher is required (found $version)"
+        print_error "Neither curl nor wget is available"
+        return 1
+    fi
+}
+
+# Function to download and extract Bugster CLI
+download_and_extract_to() {
+    local version="$1"
+    local temp_dir="$2"
+    local asset_name
+    asset_name=$(detect_platform "$OS")
+    
+    # Download the asset
+    local zip_path="$temp_dir/bugster.zip"
+    local download_url="${GITHUB_REPO}/releases/download/${version}/${asset_name}"
+    
+    if ! download_with_progress "$download_url" "$zip_path"; then
+        return 1
+    fi
+    
+    # Extract the zip file
+    if ! unzip -q "$zip_path" -d "$temp_dir"; then
+        return 1
+    fi
+    
+    # Find the executable
+    local exe_path="$temp_dir/bugster"
+    
+    if [[ ! -f "$exe_path" ]]; then
+        return 1
+    fi
+    
+    # Make executable
+    chmod +x "$exe_path"
+    
+    # Write the path to a temp file instead of echoing
+    echo "$exe_path" > "$temp_dir/exe_path"
+    return 0
+}
+
+# Global variable for installed path
+BUGSTER_INSTALLED_PATH=""
+
+# Function to install executable
+install_executable() {
+    local executable_path="$1"
+    local install_dir="$HOME/.local/bin"
+    local target_path="$install_dir/bugster"
+    
+    # Create installation directory if it doesn't exist
+    mkdir -p "$install_dir"
+    
+    # Copy executable to installation directory
+    if cp "$executable_path" "$target_path"; then
+        chmod +x "$target_path"
+        BUGSTER_INSTALLED_PATH="$target_path"
+        return 0
+    else
+        print_error "Error installing executable to $target_path"
+        return 1
+    fi
+}
+
+# Function to add directory to PATH
+add_to_path() {
+    local install_dir="$1"
+    
+    local shell_type="${SHELL##*/}"
+    local config_file
+    local home_dir="$HOME"
+    
+    # Determine which shell config file to update
+    case "$shell_type" in
+        zsh)
+            if [[ -f "$home_dir/.zshrc" ]]; then
+                config_file="$home_dir/.zshrc"
+            else
+                config_file="$home_dir/.zprofile"
+            fi
+            ;;
+        bash)
+            if [[ -f "$home_dir/.bash_profile" ]]; then
+                config_file="$home_dir/.bash_profile"
+            else
+                config_file="$home_dir/.bashrc"
+            fi
+            ;;
+        fish)
+            config_file="$home_dir/.config/fish/config.fish"
+            mkdir -p "$(dirname "$config_file")" 2>/dev/null
+            ;;
+        *)
+            config_file="$home_dir/.profile"
+            ;;
+    esac
+    
+    # Check if PATH export already exists
+    if [[ -f "$config_file" ]] && grep -q "$install_dir" "$config_file" 2>/dev/null; then
+        echo "already_exists:$config_file"
+        return 0
+    fi
+    
+    # Add PATH export to config file - write directly without function calls
+    cat >> "$config_file" << EOL
+
+# Added by Bugster CLI installer
+export PATH="\$PATH:$install_dir"
+EOL
+    
+    echo "added:$config_file"
+    return 0
+}
+
+# Function to test installation
+test_installation() {
+    local installed_path="$1"
+    local version="$2"
+    
+    print_step "Testing installation..."
+    
+    # Test that binary exists and works
+    if [[ -x "$installed_path" ]]; then
+        # Run --version to show the installed version
+        "$installed_path" --version
+        return 0
+    else
+        print_error "❌ Installation test failed - binary not found or not executable at $installed_path"
+        return 1
+    fi
+}
+
+# Function to cleanup temporary files
+cleanup() {
+    local temp_dir="$1"
+    if [[ -n "$temp_dir" && -d "$temp_dir" ]]; then
+        rm -rf "$temp_dir"
+    fi
+}
+
+# Main installation function
+main() {
+    print_step "Starting Bugster CLI installation..."
+    
+    # Validate version format
+    if ! validate_version "$VERSION"; then
+        exit 1
+    fi
+    
+    # Get version to install
+    local install_version="$VERSION"
+    if [[ "$install_version" == "latest" ]]; then
+        install_version=$(get_latest_version)
+        if [[ "$install_version" == "$DEFAULT_VERSION" ]]; then
+            print_warning "Could not fetch latest version, using default: $install_version"
+        fi
+    fi
+    
+    # Check if version exists
+    if ! check_version_exists "$install_version"; then
+        print_error "Version $install_version not found"
+        exit 1
+    fi
+    
+    print_step "Installing Bugster CLI $install_version"
+    
+    # Check for Node.js version and install if needed
+    print_step "Checking Node.js installation..."
+    if check_node_version; then
+        # Node.js is OK, continue silently
+        true
+    else
+        if command -v node &>/dev/null; then
+            local node_version=$(node --version)
+            print_error "❌ Node.js 18 or higher is required (found $node_version)"
+        else
+            print_error "❌ Node.js is not installed"
+        fi
+        
         if [[ "$AUTO_YES" == "true" ]]; then
             choice="y"
         else
-            print_warning "Would you like to install Python 3.12? (y/n)"
+            print_warning "Would you like to install Node.js 18? (y/n)"
             read -r choice
         fi
+        
         if [[ "$choice" == "y" || "$choice" == "Y" ]]; then
             if [[ "$OS" == "macOS" ]]; then
-                install_python_macos
+                install_node_macos
             else
-                install_python_linux
+                install_node_linux
             fi
         else
-            print_error "Please install Python 3.10 or higher manually and try again."
+            print_error "Please install Node.js 18 or higher manually and try again."
             exit 1
         fi
     fi
-else
-    print_error "❌ Python 3 is not installed or not in your PATH"
-    if [[ "$AUTO_YES" == "true" ]]; then
-        choice="y"
-    else
-        print_warning "Would you like to install Python 3.12? (y/n)"
-        read -r choice
-    fi
-    if [[ "$choice" == "y" || "$choice" == "Y" ]]; then
-        if [[ "$OS" == "macOS" ]]; then
-            install_python_macos
-        else
-            install_python_linux
-        fi
-    else
-        print_error "Please install Python 3.10 or higher manually and try again."
+    
+    # Install Playwright
+    print_step "Installing Playwright..."
+    # TODO: Install the playwright version used in @playwright/mcp
+    CI=true npx -y playwright@1.54.1 install --with-deps chromium >/dev/null 2>&1
+    npx -y @playwright/mcp@latest --version >/dev/null 2>&1 || true
+    
+    # Download and extract Bugster CLI
+    local temp_dir
+    temp_dir=$(mktemp -d)
+    
+    print_step "Downloading Bugster CLI $install_version for $OS..."
+    local asset_name
+    asset_name=$(detect_platform "$OS")
+    local download_url="${GITHUB_REPO}/releases/download/${install_version}/${asset_name}"
+    print_step "Downloading from $download_url..."
+    
+    if ! download_and_extract_to "$install_version" "$temp_dir"; then
+        print_error "Failed to download and extract Bugster CLI"
+        print_error "Check if $asset_name exists for version $install_version"
+        print_error "URL: $download_url"
+        cleanup "$temp_dir"
         exit 1
     fi
-fi
+    
+    # Read the executable path from the temp file
+    local executable_path
+    if [[ -f "$temp_dir/exe_path" ]]; then
+        executable_path=$(cat "$temp_dir/exe_path")
+    else
+        print_error "Failed to get executable path"
+        cleanup "$temp_dir"
+        exit 1
+    fi
+    
+    # Install executable and add to PATH
+    if ! install_executable "$executable_path"; then
+        cleanup "$temp_dir"
+        exit 1
+    fi
+    
+    local install_dir
+    install_dir=$(dirname "$BUGSTER_INSTALLED_PATH")
+    local path_result
+    path_result=$(add_to_path "$install_dir")
+    
+    # Only show PATH messages on error or if added for first time
+    if [[ "$path_result" == added:* ]]; then
+        local config_file="${path_result#added:}"
+        print_success "✅ Added to PATH in $config_file"
+    elif [[ ! "$path_result" == already_exists:* ]]; then
+        print_warning "⚠️  Could not update PATH in shell config"
+    fi
+    
+    # Test installation (skip if we're in an upgrade)
+    if [[ -z "$BUGSTER_UPGRADE_IN_PROGRESS" ]]; then
+        if ! test_installation "$BUGSTER_INSTALLED_PATH" "$install_version"; then
+            cleanup "$temp_dir"
+            exit 1
+        fi
+    else
+        print_step "Skipping installation test during upgrade process."
+    fi
+    
+    # Clean up
+    cleanup "$temp_dir"
+    
+    # Update shell environment and finish
+    local shell_type="${SHELL##*/}"
+    local config_file
+    case "$shell_type" in
+        zsh)
+            config_file="$HOME/.zshrc"
+            ;;
+        bash)
+            if [[ -f "$HOME/.bash_profile" ]]; then
+                config_file="$HOME/.bash_profile"
+            else
+                config_file="$HOME/.bashrc"
+            fi
+            ;;
+        fish)
+            config_file="$HOME/.config/fish/config.fish"
+            ;;
+        *)
+            config_file="$HOME/.profile"
+            ;;
+    esac
+    
+    # Source the config file automatically to load new PATH
+    if [[ -f "$config_file" ]]; then
+        source "$config_file" 2>/dev/null || true
+        print_success "\nBugster CLI is now ready to use! Try:"
+        print_success "  bugster --help"
+    else
+        print_warning "\nPlease restart your terminal to use Bugster CLI, then run:"
+        print_warning "  bugster --help"
+    fi
+}
 
-print_step "Installing Playwright..."
-CI=true npx -y playwright@1.53.0 install --with-deps chromium > /dev/null 2>&1
-npx -y @playwright/mcp@latest --version
-# Download and run the Python installer script with version argument
-print_step "Downloading the Bugster CLI installer..."
+# Run main function
+main
 
-# Find the best available Python executable
-PYTHON_PATH=$(find_best_python)
-if [[ -z "$PYTHON_PATH" ]]; then
-    print_error "❌ No suitable Python version found. Please install Python 3.10 or higher."
-    exit 1
-fi
-
-print_step "Using Python: $PYTHON_PATH"
-
-if [[ "$VERSION" == "latest" ]]; then
-    curl -sSL https://raw.githubusercontent.com/Bugsterapp/bugster-cli/main/scripts/install.py | "$PYTHON_PATH"
-else
-    curl -sSL https://raw.githubusercontent.com/Bugsterapp/bugster-cli/main/scripts/install.py | "$PYTHON_PATH" - -v "$VERSION"
-fi
-
-exit_code=$?
-if [[ $exit_code -ne 0 ]]; then
-    print_error "❌ Installation failed"
-    exit $exit_code
-fi
-
-exit $exit_code 
+exit $? 
