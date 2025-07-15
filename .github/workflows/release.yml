@@ -55,7 +55,7 @@ jobs:
     strategy:
       matrix:
         include:
-          - os: ubuntu-latest
+          - os: ubuntu-22.04
             asset_name: bugster-linux
           - os: windows-latest
             asset_name: bugster-windows.exe
