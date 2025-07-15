@@ -164,10 +164,10 @@ def init(
 
 @app.command()
 def auth(
-    api_key: Optional[str] = typer.Option(
+    api_key: Optional[str] = Option(
         None, "--api-key", help="Bugster API key to set (starts with 'bugster_')"
     ),
-    clear: bool = typer.Option(False, "--clear", help="Clear the existing API key"),
+    clear: bool = Option(False, "--clear", help="Clear the existing API key"),
 ):
     """Authenticate with Bugster API key."""
     from bugster.commands.auth import auth_command
