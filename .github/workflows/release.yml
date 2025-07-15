@@ -82,7 +82,7 @@ jobs:
         env:
           POSTHOG_API_KEY: ${{ secrets.POSTHOG_API_KEY }}
         run: |
-          python scripts/inject_config.py -env ${{ needs.validate.outputs.environment }}
+          python scripts/inject_config.py -env ${{ needs.validate.outputs.environment }} -v ${{ needs.validate.outputs.version }}
 
       - name: Build executable
         run: |
