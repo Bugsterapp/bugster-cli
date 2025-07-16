@@ -20,6 +20,11 @@ from bugster.commands.sync import get_current_branch
 from bugster.commands.test import apply_vercel_protection_bypass
 from bugster.libs.services.destructive_service import DestructiveService
 from bugster.libs.services.destructive_stream_service import DestructiveStreamService
+from bugster.libs.services.destructive_limits_service import (
+    apply_destructive_agent_limit,
+    count_total_agents,
+    get_destructive_agent_limit_from_config,
+)
 from bugster.types import (
     Config,
     NamedDestructiveResult,
@@ -563,14 +568,37 @@ async def destructive_command(
         all_agent_tasks = []
         for page_agent in page_agents:
             page = page_agent.page
-            diff = destructive_service.get_diff_for_page(page)
-
             for agent in page_agent.agents:
-                all_agent_tasks.append((page, agent, diff))
+                all_agent_tasks.append((page, agent))
 
         if not all_agent_tasks:
             DestructiveMessages.no_agents_assigned()
             return
+
+        # Apply destructive agent limits
+        max_agents = get_destructive_agent_limit_from_config()
+        original_count = count_total_agents(all_agent_tasks)
+        limited_agent_tasks, agent_distribution = apply_destructive_agent_limit(all_agent_tasks, max_agents)
+        selected_count = count_total_agents(limited_agent_tasks)
+
+        # Print agent limit information if limiting was applied
+        if int(original_count) > int(max_agents):
+            console.print(
+                DestructiveMessages.create_agent_limit_panel(
+                    original_count=original_count,
+                    selected_count=selected_count,
+                    max_agents=max_agents,
+                    agent_distribution=agent_distribution
+                )
+            )
+
+        # Convert back to (page, agent, diff) format for execution
+        final_agent_tasks = []
+        for page, agent in limited_agent_tasks:
+            diff = destructive_service.get_diff_for_page(page)
+            final_agent_tasks.append((page, agent, diff))
+
+        all_agent_tasks = final_agent_tasks
 
         # Determine max concurrent agents (default to 3 for safety)
         max_concurrent = max_concurrent or 3

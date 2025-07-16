@@ -751,6 +751,65 @@ class DestructiveMessages:
         console.print(Panel(panel_content.strip(), border_style=style))
 
     @staticmethod
+    def create_agent_limit_panel(
+        original_count: int,
+        selected_count: int,
+        max_agents: int,
+        agent_distribution: dict,
+    ):
+        """Create a panel showing destructive agent limit information."""
+        content = []
+
+        if selected_count < original_count:
+            content.append(
+                f"[bold]Agent limit applied:[/bold] Running {selected_count} out of {original_count} destructive agents (limit: {max_agents})"
+            )
+
+            content.append("")  # Empty line for spacing
+            content.append("[bold]Distribution by agent type (priority order):[/bold]")
+
+            # Import here to avoid circular imports
+            from bugster.libs.services.destructive_limits_service import get_agent_priority_display_name
+
+            # Show priority order: UI Crashers first, then From Destroyer, then others
+            priority_order = ['ui_crasher', 'form_destroyer']
+            
+            # First show priority agents
+            for agent_type in priority_order:
+                if agent_type in agent_distribution:
+                    display_name = get_agent_priority_display_name(agent_type)
+                    count = agent_distribution[agent_type]
+                    content.append(
+                        f"🥇 [{BugsterColors.TEXT_DIM}]{display_name}[/{BugsterColors.TEXT_DIM}]"
+                    )
+                    content.append(
+                        f"   ▸ [{BugsterColors.TEXT_PRIMARY}]{count} agents[/{BugsterColors.TEXT_PRIMARY}]"
+                    )
+
+            # Then show other agent types
+            other_agents = {
+                agent_type: count for agent_type, count in agent_distribution.items()
+                if agent_type not in priority_order
+            }
+            
+            for agent_type, count in sorted(other_agents.items()):
+                display_name = get_agent_priority_display_name(agent_type)
+                content.append(
+                    f"🤖 [{BugsterColors.TEXT_DIM}]{display_name}[/{BugsterColors.TEXT_DIM}]"
+                )
+                content.append(
+                    f"   ▸ [{BugsterColors.TEXT_PRIMARY}]{count} agents[/{BugsterColors.TEXT_PRIMARY}]"
+                )
+
+        panel_content = "\n".join(content)
+        return Panel(
+            panel_content,
+            title="⚠️  Destructive Agent Limit Applied",
+            border_style=BugsterColors.WARNING,
+            padding=(1, 2),
+        )
+
+    @staticmethod
     def create_bugs_details_panel(results):
         """Create and show detailed bugs found by destructive agents."""
         if not results:
