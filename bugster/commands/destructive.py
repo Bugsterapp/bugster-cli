@@ -470,9 +470,10 @@ async def execute_single_destructive_agent(
         try:
             call_pricing_endpoint(organization_id, "destructive")
         except QuotaExceededError as e:
-            # Add quota exceeded as a bug
-            from bugster.types import Bug
-            result.result.bugs.append(Bug(name="Quota Exceeded", description=str(e)))
+            # Don't add quota exceeded as a bug if quota is exceeded during execution
+            # This should not happen since we pre-filtered agents
+            logger.warning(f"Destructive quota exceeded during execution for agent {agent} on page {page}: {e}")
+            logger.warning(f"This is unexpected since agents were pre-filtered to available quota")
         except Exception as e:
             logger.warning(f"Pricing endpoint error (non-critical): {e}")
 
@@ -598,14 +599,29 @@ async def destructive_command(
             DestructiveMessages.no_agents_assigned()
             return
 
-        # Check pricing availability before starting destructive agents
+        # Check pricing availability and limit agents to available quota
+        available_destructive_count = None
         if organization_id:
             try:
                 pricing_info = check_pricing_availability(organization_id)
-                # Check if destructive quota is exceeded
-                if pricing_info.get('exceeded_destructive_quota', False):
-                    DestructiveMessages.error("Destructive quota exceeded. Please upgrade your plan.")
+                available_destructive_count = pricing_info.get('available_destructive', 0)
+                
+                # Only stop if destructive quota is completely exhausted
+                if available_destructive_count <= 0:
+                    DestructiveMessages.error("Destructive quota completely exhausted. Please upgrade your plan.")
                     raise typer.Exit(1)
+                
+                # Limit agents to available quota (select first N agents in order)
+                if available_destructive_count < len(all_agent_tasks):
+                    original_count = len(all_agent_tasks)
+                    skipped_count = original_count - available_destructive_count
+                    all_agent_tasks = all_agent_tasks[:available_destructive_count]
+                    console.print(f"⚠️  Quota limit: Running {available_destructive_count} destructive agents (skipping {skipped_count} due to quota)")
+                    console.print(f"   Selected agents in order of priority. Remaining agents will not be executed.")
+                
+            except typer.Exit:
+                # Re-raise typer.Exit to stop execution
+                raise
             except Exception as e:
                 logger.warning(f"Could not check pricing availability: {e}")
                 # Continue with agents even if pricing check fails

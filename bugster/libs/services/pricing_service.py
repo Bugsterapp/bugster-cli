@@ -18,6 +18,9 @@ class PricingService:
     """Service for tracking test and destructive usage via pricing endpoint."""
 
     def __init__(self):
+        from bugster.libs.settings import libs_settings
+        # Hardcode dev.bugster.app for testing
+        self.base_url = "https://dev.bugster.app"
         self.api_key = get_api_key()
         if not self.api_key:
             raise ValueError(
@@ -28,10 +31,9 @@ class PricingService:
         """Check pricing availability for an organization."""
         try:
             with BugsterHTTPClient() as client:
-                client.set_headers({"x-api-key": self.api_key})
-                response = client.get(
-                    f"/api/v1/pricing/info?organization_id={organization_id}"
-                )
+                client.set_headers({"X-API-Key": self.api_key})
+                endpoint = f"/pricing/info?organization_id={organization_id}"
+                response = client.get(endpoint)
                 return response
         except Exception as e:
             # If organization doesn't exist, it's OK (will be created on first use)
@@ -43,29 +45,32 @@ class PricingService:
         """Track usage for a specific action (test or destructive)."""
         try:
             with BugsterHTTPClient() as client:
-                client.set_headers({"x-api-key": self.api_key})
-                response = client.post(
-                    "/api/v1/pricing/process",
-                    json={
-                        "organization_id": organization_id,
-                        "action": action
-                    }
-                )
+                client.set_headers({"X-API-Key": self.api_key})
+                endpoint = "/pricing/process"
+                payload = {
+                    "organization_id": organization_id,
+                    "action": action
+                }
+                logger.info(f"Calling pricing endpoint: {self.base_url}{endpoint}")
+                response = client.post(endpoint, json=payload)
                 return response
         except Exception as e:
             # Check if it's a quota exceeded error
-            if hasattr(e, 'response') and e.response.status_code == 400:
-                try:
-                    error_data = e.response.json()
-                    # Check for the specific quota exceeded pattern
-                    if (error_data.get('error', '').endswith('quota exceeded') and 
-                        error_data.get(f'exceeded_{action}_quota') == True):
-                        raise QuotaExceededError(error_data['error'])
-                except:
-                    # Fallback if parsing fails
-                    raise QuotaExceededError(f'{action.capitalize()} quota exceeded')
+            # The error message from BugsterHTTPError contains the response text
+            error_message = str(e)
+            logger.info(f"Pricing endpoint error: {error_message}")
+            
+            if "400" in error_message and "quota exceeded" in error_message.lower():
+                # Extract the specific quota exceeded message if possible
+                if f"exceeded_{action}_quota" in error_message:
+                    quota_error = f"{action.capitalize()} quota exceeded"
+                else:
+                    quota_error = f"{action.capitalize()} quota exceeded"
+                logger.warning(f"Quota exceeded detected: {quota_error}")
+                raise QuotaExceededError(quota_error)
             
             # Re-raise other errors
+            logger.error(f"Non-quota pricing error: {error_message}")
             raise
 
 

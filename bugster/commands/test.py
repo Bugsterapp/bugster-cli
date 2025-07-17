@@ -606,8 +606,10 @@ async def execute_single_test(
         try:
             call_pricing_endpoint(organization_id, "test")
         except QuotaExceededError as e:
-            result.reason = str(e)
-            result.result = "fail"
+            # Don't mark as failed if quota is exceeded during execution
+            # This should not happen since we pre-filtered tests
+            logger.warning(f"Test quota exceeded during execution for test {test.name}: {e}")
+            logger.warning(f"This is unexpected since tests were pre-filtered to available quota")
         except Exception as e:
             logger.warning(f"Pricing endpoint error (non-critical): {e}")
 
@@ -838,15 +840,29 @@ async def test_command(
             RunMessages.no_tests_found()
             return
 
-        # Check pricing availability before starting tests
+        # Check pricing availability and limit tests to available quota
+        available_test_count = None
         if organization_id:
             try:
                 pricing_info = check_pricing_availability(organization_id)
-                # Check if any test type has exceeded quota
-                for test_type in ['test', 'destructive']:
-                    if pricing_info.get(f'exceeded_{test_type}_quota', False):
-                        RunMessages.error(f"{test_type.capitalize()} quota exceeded. Please upgrade your plan.")
-                        raise typer.Exit(1)
+                available_test_count = pricing_info.get('available_test', 0)
+                
+                # Only stop if test quota is completely exhausted
+                if available_test_count <= 0:
+                    RunMessages.error("Test quota completely exhausted. Please upgrade your plan.")
+                    raise typer.Exit(1)
+                
+                # Limit tests to available quota (select first N tests in order)
+                if available_test_count < len(all_tests):
+                    original_count = len(all_tests)
+                    skipped_count = original_count - available_test_count
+                    all_tests = all_tests[:available_test_count]
+                    console.print(f"⚠️  Quota limit: Running {available_test_count} tests (skipping {skipped_count} due to quota)")
+                    console.print(f"   Selected tests in order of priority. Remaining tests will not be executed.")
+                
+            except typer.Exit:
+                # Re-raise typer.Exit to stop execution
+                raise
             except Exception as e:
                 logger.warning(f"Could not check pricing availability: {e}")
                 # Continue with tests even if pricing check fails
