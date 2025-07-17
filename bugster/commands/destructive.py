@@ -1,5 +1,6 @@
 import asyncio
 import hashlib
+import logging
 import time
 import uuid
 from concurrent.futures import ThreadPoolExecutor
@@ -31,6 +32,8 @@ from bugster.types import (
 )
 from bugster.utils.console_messages import DestructiveMessages
 from bugster.utils.file import get_mcp_config_path, load_config
+from bugster.analytics import get_analytics
+from bugster.libs.services.pricing_service import call_pricing_endpoint, check_pricing_availability, QuotaExceededError
 
 console = Console()
 
@@ -407,6 +410,7 @@ async def execute_single_destructive_agent_with_semaphore(
     run_id: str,
     executor: ThreadPoolExecutor,
     silent: bool = False,
+    organization_id: Optional[str] = None,
 ) -> NamedDestructiveResult:
     """Execute a single destructive agent with semaphore for concurrency control."""
     async with semaphore:
@@ -421,6 +425,7 @@ async def execute_single_destructive_agent_with_semaphore(
             run_id,
             executor,
             silent,
+            organization_id,
         )
 
 
@@ -435,6 +440,7 @@ async def execute_single_destructive_agent(
     run_id: str,
     executor: ThreadPoolExecutor,
     silent: bool = False,
+    organization_id: Optional[str] = None,
 ) -> NamedDestructiveResult:
     """Execute a single destructive agent and handle streaming."""
     max_concurrent = agent_executor_kwargs.get("max_concurrent", 1)
@@ -459,6 +465,17 @@ async def execute_single_destructive_agent(
 
     # Add elapsed time to result
     result.time = agent_elapsed_time
+    
+    # Track pricing usage if organization_id is available
+    if organization_id:
+        try:
+            call_pricing_endpoint(organization_id, "destructive")
+        except QuotaExceededError as e:
+            # Add quota exceeded as a bug
+            from bugster.types import Bug
+            result.result.bugs.append(Bug(name="Quota Exceeded", description=str(e)))
+        except Exception as e:
+            logger.warning(f"Pricing endpoint error (non-critical): {e}")
 
     print_parallel_safe(
         agent,
@@ -542,6 +559,16 @@ async def destructive_command(
         config = load_config()
         if base_url:
             config.base_url = base_url
+            
+        # Extract organization_id from API key for pricing tracking
+        try:
+            from bugster.utils.user_config import get_api_key
+            api_key = get_api_key()
+            analytics = get_analytics()
+            organization_id = analytics.extract_organization_id(api_key)
+        except Exception as e:
+            logger.warning(f"Could not extract organization_id from API key: {e}")
+            organization_id = None
 
         # Apply Vercel protection bypass query parameter if present
         config = apply_vercel_protection_bypass(config)
@@ -571,6 +598,18 @@ async def destructive_command(
         if not all_agent_tasks:
             DestructiveMessages.no_agents_assigned()
             return
+
+        # Check pricing availability before starting destructive agents
+        if organization_id:
+            try:
+                pricing_info = check_pricing_availability(organization_id)
+                # Check if destructive quota is exceeded
+                if pricing_info.get('exceeded_destructive_quota', False):
+                    DestructiveMessages.error("Destructive quota exceeded. Please upgrade your plan.")
+                    raise typer.Exit(1)
+            except Exception as e:
+                logger.warning(f"Could not check pricing availability: {e}")
+                # Continue with agents even if pricing check fails
 
         # Determine max concurrent agents (default to 3 for safety)
         max_concurrent = max_concurrent or 3
@@ -614,6 +653,7 @@ async def destructive_command(
                     run_id,
                     executor,
                     silent,
+                    organization_id,
                 )
                 tasks.append(task)
 

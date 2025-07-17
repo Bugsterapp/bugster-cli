@@ -1,6 +1,7 @@
 import asyncio
 import hashlib
 import json
+import logging
 import time
 import uuid
 from concurrent.futures import ThreadPoolExecutor
@@ -46,6 +47,8 @@ from bugster.utils.file import (
 )
 from bugster.utils.user_config import get_api_key
 from bugster.clients.http_client import BugsterHTTPClient
+from bugster.analytics import get_analytics
+from bugster.libs.services.pricing_service import call_pricing_endpoint, check_pricing_availability, QuotaExceededError
     
 console = Console()
 # Color palette for parallel test execution
@@ -576,6 +579,7 @@ async def execute_single_test(
     run_id: str,
     executor: ThreadPoolExecutor,
     silent: bool = False,
+    organization_id: Optional[str] = None,
 ) -> NamedTestResult:
     """Execute a single test and handle streaming."""
     max_concurrent = test_executor_kwargs.get("max_concurrent", 1)
@@ -597,6 +601,16 @@ async def execute_single_test(
 
     # Add elapsed time to result
     result.time = test_elapsed_time
+    
+    # Track pricing usage if organization_id is available
+    if organization_id:
+        try:
+            call_pricing_endpoint(organization_id, "test")
+        except QuotaExceededError as e:
+            result.reason = str(e)
+            result.result = "fail"
+        except Exception as e:
+            logger.warning(f"Pricing endpoint error (non-critical): {e}")
 
     print_parallel_safe(
         test.name,
@@ -638,6 +652,7 @@ async def execute_single_test_with_semaphore(
     run_id: str,
     executor: ThreadPoolExecutor,
     silent: bool = False,
+    organization_id: Optional[str] = None,
 ) -> NamedTestResult:
     """Execute a single test with semaphore for concurrency control."""
     async with semaphore:
@@ -650,6 +665,7 @@ async def execute_single_test_with_semaphore(
             run_id,
             executor,
             silent,
+            organization_id,
         )
 
 
@@ -709,6 +725,15 @@ async def test_command(
         # Load configuration and test files
         config = load_config()
         max_tests = get_test_limit_from_config()
+        
+        # Extract organization_id from API key for pricing tracking
+        try:
+            api_key = get_api_key()
+            analytics = get_analytics()
+            organization_id = analytics.extract_organization_id(api_key)
+        except Exception as e:
+            logger.warning(f"Could not extract organization_id from API key: {e}")
+            organization_id = None
         if base_url:
             # Override the base URL in the config
             # Used for CI/CD pipelines
@@ -814,6 +839,19 @@ async def test_command(
             RunMessages.no_tests_found()
             return
 
+        # Check pricing availability before starting tests
+        if organization_id:
+            try:
+                pricing_info = check_pricing_availability(organization_id)
+                # Check if any test type has exceeded quota
+                for test_type in ['test', 'destructive']:
+                    if pricing_info.get(f'exceeded_{test_type}_quota', False):
+                        RunMessages.error(f"{test_type.capitalize()} quota exceeded. Please upgrade your plan.")
+                        raise typer.Exit(1)
+            except Exception as e:
+                logger.warning(f"Could not check pricing availability: {e}")
+                # Continue with tests even if pricing check fails
+
         # Determine max concurrent tests (default to 3 for safety)
         max_concurrent = max_concurrent or 3
         semaphore = asyncio.Semaphore(max_concurrent)
@@ -846,6 +884,7 @@ async def test_command(
                     run_id,
                     executor,
                     silent,
+                    organization_id,
                 )
                 tasks.append(task)
 
