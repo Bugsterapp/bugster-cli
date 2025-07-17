@@ -19,8 +19,7 @@ class PricingService:
 
     def __init__(self):
         from bugster.libs.settings import libs_settings
-        # Hardcode dev.bugster.app for testing
-        self.base_url = "https://dev.bugster.app"
+        self.base_url = libs_settings.bugster_api_url
         self.api_key = get_api_key()
         if not self.api_key:
             raise ValueError(
