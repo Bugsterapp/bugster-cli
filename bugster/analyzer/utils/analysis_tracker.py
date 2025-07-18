@@ -13,7 +13,7 @@ def has_analysis_completed():
         return False
 
     try:
-        with open(STATE_FILE) as f:
+        with open(STATE_FILE, encoding="utf-8") as f:
             state = json.load(f)
         return state.get("completed", False)
     except (json.JSONDecodeError, KeyError):
@@ -33,7 +33,7 @@ def analysis_tracker(version: str = "1.0"):
     }
 
     try:
-        with open(STATE_FILE, "w") as f:
+        with open(STATE_FILE, "w", encoding="utf-8") as f:
             json.dump(state, f, indent=2)
 
         yield state
@@ -58,5 +58,5 @@ def analysis_tracker(version: str = "1.0"):
         )
         raise
     finally:
-        with open(STATE_FILE, "w") as f:
+        with open(STATE_FILE, "w", encoding="utf-8") as f:
             json.dump(state, f, indent=2)

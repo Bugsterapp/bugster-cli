@@ -43,7 +43,7 @@ def get_gitignore(dir_path: str = WORKING_DIR):
         gitignore_path = os.path.join(dir_path, ".gitignore")
 
         if os.path.exists(gitignore_path):
-            with open(gitignore_path) as f:
+            with open(gitignore_path, encoding="utf-8") as f:
                 gitignore = pathspec.PathSpec.from_lines(
                     pathspec.patterns.GitWildMatchPattern, f.readlines()
                 )

@@ -196,7 +196,7 @@ class ImportTreeGenerator:
             return
 
         try:
-            with open(tsconfig_path) as f:
+            with open(tsconfig_path, encoding="utf-8") as f:
                 tsconfig = json.load(f)
 
             compiler_options = tsconfig.get("compilerOptions", {})

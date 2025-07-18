@@ -271,7 +271,7 @@ class NextjsAnalyzer:
                 "data": serialize_analysis(analysis),
             }
 
-            with open(analysis_json_path, "w") as f:
+            with open(analysis_json_path, "w", encoding="utf-8") as f:
                 json.dump(output, f, indent=2)
 
             logger.info("Analysis saved to {}", {"path": analysis_json_path})

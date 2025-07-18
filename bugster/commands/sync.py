@@ -372,7 +372,7 @@ def sync_command(
                                 ].metadata
 
                     # Check if any spec needs metadata update by comparing file content
-                    with open(file) as f:
+                    with open(file, encoding="utf-8") as f:
                         original_content = f.read()
 
                     # Generate new content with metadata

@@ -64,11 +64,11 @@ def update_gitignore():
     # Read existing entries
     existing_entries = []
     if gitignore_path.exists():
-        with open(gitignore_path) as f:
+        with open(gitignore_path, encoding="utf-8") as f:
             existing_entries = f.read().splitlines()
 
     # Add missing entries
-    with open(gitignore_path, "a") as f:
+    with open(gitignore_path, "a", encoding="utf-8") as f:
         if existing_entries and existing_entries[-1] != "":
             f.write("\n")  # Add newline if file doesn't end with one
 
@@ -104,21 +104,26 @@ def init_command(
 
     # Validate platform flag
     if platform not in ["vercel", "railway"]:
-        console.print("[red]Error: --platform must be either 'vercel' or 'railway'.[/red]")
+        console.print(
+            "[red]Error: --platform must be either 'vercel' or 'railway'.[/red]"
+        )
         raise typer.Exit(1)
 
     # Handle API key authentication
     current_api_key = get_api_key()
-    
+
     # Use provided API key or get from storage
     if api_key:
         # Validate provided API key
         if not validate_api_key(api_key):
-            console.print("[red]Invalid API key. Please check the format and try again.[/red]")
+            console.print(
+                "[red]Invalid API key. Please check the format and try again.[/red]"
+            )
             raise typer.Exit(1)
-        
+
         # Save the provided API key
         from bugster.utils.user_config import save_api_key
+
         save_api_key(api_key)
         current_api_key = api_key
         console.print("[green]✓ API key saved successfully[/green]")
@@ -138,7 +143,9 @@ def init_command(
 
         InitMessages.auth_success()
     elif not current_api_key and no_auth:
-        console.print("[red]No API key configured and --no-auth flag provided. Please provide --api-key or run without --no-auth.[/red]")
+        console.print(
+            "[red]No API key configured and --no-auth flag provided. Please provide --api-key or run without --no-auth.[/red]"
+        )
         raise typer.Exit(1)
 
     # Check for existing configuration
@@ -159,13 +166,13 @@ def init_command(
 
     # Project setup
     InitMessages.project_setup()
-    
+
     # Use provided project name or prompt for it
     if project_name is None:
         project_name = Prompt.ask("🏷️  Project name", default=Path.cwd().name)
     else:
         console.print(f"🏷️  Project name: {project_name}")
-        
+
     project_path = ""
     with contextlib.suppress(Exception):
         project_path = get_git_prefix_path()
@@ -192,7 +199,7 @@ def init_command(
         project_id = generate_project_id(project_name)
 
     InitMessages.show_project_id(project_id)
-    
+
     # Use provided URL or prompt for it
     if url is None:
         base_url = Prompt.ask("\n🌐 Application URL", default="http://localhost:3000")
@@ -206,29 +213,36 @@ def init_command(
     if no_credentials:
         # Skip credentials setup entirely
         if user is not None or password is not None or credential_name is not None:
-            console.print("[red]Error: Cannot use --user, --password, or --credential-name with --no-credentials.[/red]")
+            console.print(
+                "[red]Error: Cannot use --user, --password, or --credential-name with --no-credentials.[/red]"
+            )
             raise typer.Exit(1)
         else:
-            console.print("🚫 Skipping credential setup (--no-credentials flag provided)")
+            console.print(
+                "🚫 Skipping credential setup (--no-credentials flag provided)"
+            )
     else:
         InitMessages.auth_setup()
-        
+
         # Determine if we should use custom credentials
         use_custom_credentials = False
-        
+
         if user is not None and password is not None:
             # Both user and password provided via flags
             use_custom_credentials = True
             console.print("✓ Using provided login credentials")
         elif user is not None or password is not None:
             # Only one of user/password provided - this is an error
-            console.print("[red]Error: Both --user and --password must be provided together.[/red]")
+            console.print(
+                "[red]Error: Both --user and --password must be provided together.[/red]"
+            )
             raise typer.Exit(1)
         else:
             # No credentials provided via flags, prompt interactively
             if (
                 Prompt.ask(
-                    "➕ Would you like to add custom login credentials? (y/n)", default="y"
+                    "➕ Would you like to add custom login credentials? (y/n)",
+                    default="y",
                 ).lower()
                 == "y"
             ):
@@ -253,7 +267,9 @@ def init_command(
                 username = Prompt.ask("📧 Username/Email")
                 password_value = Prompt.ask("🔒 Password", password=True)
 
-            credentials.append(create_credential_entry(identifier, username, password_value))
+            credentials.append(
+                create_credential_entry(identifier, username, password_value)
+            )
             InitMessages.credential_added()
         else:
             credentials.append(create_credential_entry())
@@ -275,7 +291,7 @@ def init_command(
         "base_url": base_url,
         "credentials": credentials,
     }
-    
+
     # Add platform-specific protection bypass headers
     if bypass_protection:
         if platform == "vercel":
@@ -288,7 +304,7 @@ def init_command(
             config["x-vercel-protection-bypass"] = ""
         elif platform == "railway":
             config["x-railway-protection-bypass"] = ""
-    with open(CONFIG_PATH, "w") as f:
+    with open(CONFIG_PATH, "w", encoding="utf-8") as f:
         yaml.dump(config, f, default_flow_style=False)
 
     # Show success message and summary
