@@ -46,6 +46,8 @@ from bugster.utils.file import (
 )
 from bugster.utils.user_config import get_api_key
 from bugster.clients.http_client import BugsterHTTPClient
+from bugster.analytics import get_analytics
+from bugster.libs.services.pricing_service import call_pricing_endpoint, check_pricing_availability, QuotaExceededError
     
 console = Console()
 # Color palette for parallel test execution
@@ -576,6 +578,7 @@ async def execute_single_test(
     run_id: str,
     executor: ThreadPoolExecutor,
     silent: bool = False,
+    organization_id: Optional[str] = None,
 ) -> NamedTestResult:
     """Execute a single test and handle streaming."""
     max_concurrent = test_executor_kwargs.get("max_concurrent", 1)
@@ -597,6 +600,18 @@ async def execute_single_test(
 
     # Add elapsed time to result
     result.time = test_elapsed_time
+    
+    # Track pricing usage if organization_id is available
+    if organization_id:
+        try:
+            call_pricing_endpoint(organization_id, "test")
+        except QuotaExceededError as e:
+            # Don't mark as failed if quota is exceeded during execution
+            # This should not happen since we pre-filtered tests
+            logger.warning(f"Test quota exceeded during execution for test {test.name}: {e}")
+            logger.warning(f"This is unexpected since tests were pre-filtered to available quota")
+        except Exception as e:
+            logger.warning(f"Pricing endpoint error (non-critical): {e}")
 
     print_parallel_safe(
         test.name,
@@ -638,6 +653,7 @@ async def execute_single_test_with_semaphore(
     run_id: str,
     executor: ThreadPoolExecutor,
     silent: bool = False,
+    organization_id: Optional[str] = None,
 ) -> NamedTestResult:
     """Execute a single test with semaphore for concurrency control."""
     async with semaphore:
@@ -650,6 +666,7 @@ async def execute_single_test_with_semaphore(
             run_id,
             executor,
             silent,
+            organization_id,
         )
 
 
@@ -709,6 +726,15 @@ async def test_command(
         # Load configuration and test files
         config = load_config()
         max_tests = get_test_limit_from_config()
+        
+        # Extract organization_id from API key for pricing tracking
+        try:
+            api_key = get_api_key()
+            analytics = get_analytics()
+            organization_id = analytics.extract_organization_id(api_key)
+        except Exception as e:
+            logger.warning(f"Could not extract organization_id from API key: {e}")
+            organization_id = None
         if base_url:
             # Override the base URL in the config
             # Used for CI/CD pipelines
@@ -814,6 +840,85 @@ async def test_command(
             RunMessages.no_tests_found()
             return
 
+        # Check pricing availability and limit tests to available quota
+        available_test_count = None
+        if organization_id:
+            try:
+                pricing_info = check_pricing_availability(organization_id)
+                extra_credit_available = pricing_info.get('extra_credit', 0.0)
+                
+                # Get regular quota info for detailed breakdown
+                available_test_regular = pricing_info.get('available_test', 0)
+                total_test_quota = pricing_info.get('total_test', 0)
+                ran_test = pricing_info.get('ran_test', 0)
+                
+                # Get pricing info from API
+                extra_credit_prices = pricing_info.get('extra_credit_prices', {})
+                test_price = extra_credit_prices.get('test', 0.03)  # fallback to default
+                
+                # Calculate total available capacity (regular quota first, then extra credit)
+                additional_capacity = int(extra_credit_available / test_price) if test_price > 0 else 0
+                available_test_count = available_test_regular + additional_capacity
+                
+                # Calculate if we're using extra credit (quota exceeded but extra credit available)
+                test_quota_exceeded_but_extra_credit_available = available_test_regular <= 0 and extra_credit_available > 0
+                
+                # Only stop if test quota is completely exhausted (including extra_credit)
+                if available_test_count <= 0:
+                    RunMessages.error("Test quota completely exhausted. Please upgrade your plan or add extra credit.")
+                    raise typer.Exit(1)
+                
+                # Show detailed quota breakdown
+                console.print(f"📊 [bold]Quota Status:[/bold] {ran_test}/{total_test_quota} tests used (${extra_credit_available:.2f} extra credit available)")
+                
+                # Show extra_credit information if quota is exceeded but extra_credit is available
+                if test_quota_exceeded_but_extra_credit_available and extra_credit_available > 0:
+                    console.print(f"⚠️  [yellow]Regular quota exhausted[/yellow], using extra credit for additional tests")
+                    console.print(f"   💳 Extra credit: ${extra_credit_available:.2f} (${test_price:.2f} per test)")
+                
+                # Limit tests to available quota (select first N tests in order)
+                if available_test_count < len(all_tests):
+                    original_count = len(all_tests)
+                    skipped_count = original_count - available_test_count
+                    all_tests = all_tests[:available_test_count]
+                    
+                    # Calculate breakdown of what will be used
+                    tests_from_regular = min(available_test_regular, available_test_count)
+                    tests_from_extra_credit = max(0, available_test_count - available_test_regular)
+                    
+                    # Always show breakdown when using mixed quota/credit
+                    if tests_from_extra_credit > 0 or (available_test_regular > 0 and additional_capacity > 0):
+                        console.print(f"⚠️  [yellow]Quota limit:[/yellow] Running {available_test_count} tests")
+                        if tests_from_regular > 0:
+                            console.print(f"   📋 Regular quota: {tests_from_regular} tests")
+                        if tests_from_extra_credit > 0:
+                            console.print(f"   💳 Extra credit: {tests_from_extra_credit} tests (${tests_from_extra_credit * test_price:.2f})")
+                        console.print(f"   ⏭️  Skipping {skipped_count} tests due to quota/credit limit")
+                    else:
+                        console.print(f"⚠️  [yellow]Quota limit:[/yellow] Running {available_test_count} tests from regular quota")
+                        console.print(f"   ⏭️  Skipping {skipped_count} tests due to quota limit")
+                else:
+                    # No limiting needed, show what will be used
+                    tests_from_regular = min(available_test_regular, len(all_tests))
+                    tests_from_extra_credit = max(0, len(all_tests) - available_test_regular)
+                    
+                    # Always show breakdown when using mixed quota/credit
+                    if tests_from_extra_credit > 0 or (available_test_regular > 0 and additional_capacity > 0):
+                        console.print(f"📊 [green]Running {len(all_tests)} tests:[/green]")
+                        if tests_from_regular > 0:
+                            console.print(f"   📋 Regular quota: {tests_from_regular} tests")
+                        if tests_from_extra_credit > 0:
+                            console.print(f"   💳 Extra credit: {tests_from_extra_credit} tests (${tests_from_extra_credit * test_price:.2f})")
+                    else:
+                        console.print(f"📊 [green]Running {len(all_tests)} tests from regular quota[/green]")
+                
+            except typer.Exit:
+                # Re-raise typer.Exit to stop execution
+                raise
+            except Exception as e:
+                logger.warning(f"Could not check pricing availability: {e}")
+                # Continue with tests even if pricing check fails
+
         # Determine max concurrent tests (default to 3 for safety)
         max_concurrent = max_concurrent or 3
         semaphore = asyncio.Semaphore(max_concurrent)
@@ -846,6 +951,7 @@ async def test_command(
                     run_id,
                     executor,
                     silent,
+                    organization_id,
                 )
                 tasks.append(task)
 

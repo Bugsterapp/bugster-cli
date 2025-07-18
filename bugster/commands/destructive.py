@@ -31,6 +31,8 @@ from bugster.types import (
 )
 from bugster.utils.console_messages import DestructiveMessages
 from bugster.utils.file import get_mcp_config_path, load_config
+from bugster.analytics import get_analytics
+from bugster.libs.services.pricing_service import call_pricing_endpoint, check_pricing_availability, QuotaExceededError
 
 console = Console()
 
@@ -407,6 +409,7 @@ async def execute_single_destructive_agent_with_semaphore(
     run_id: str,
     executor: ThreadPoolExecutor,
     silent: bool = False,
+    organization_id: Optional[str] = None,
 ) -> NamedDestructiveResult:
     """Execute a single destructive agent with semaphore for concurrency control."""
     async with semaphore:
@@ -421,6 +424,7 @@ async def execute_single_destructive_agent_with_semaphore(
             run_id,
             executor,
             silent,
+            organization_id,
         )
 
 
@@ -435,6 +439,7 @@ async def execute_single_destructive_agent(
     run_id: str,
     executor: ThreadPoolExecutor,
     silent: bool = False,
+    organization_id: Optional[str] = None,
 ) -> NamedDestructiveResult:
     """Execute a single destructive agent and handle streaming."""
     max_concurrent = agent_executor_kwargs.get("max_concurrent", 1)
@@ -459,6 +464,18 @@ async def execute_single_destructive_agent(
 
     # Add elapsed time to result
     result.time = agent_elapsed_time
+    
+    # Track pricing usage if organization_id is available
+    if organization_id:
+        try:
+            call_pricing_endpoint(organization_id, "destructive")
+        except QuotaExceededError as e:
+            # Don't add quota exceeded as a bug if quota is exceeded during execution
+            # This should not happen since we pre-filtered agents
+            logger.warning(f"Destructive quota exceeded during execution for agent {agent} on page {page}: {e}")
+            logger.warning(f"This is unexpected since agents were pre-filtered to available quota")
+        except Exception as e:
+            logger.warning(f"Pricing endpoint error (non-critical): {e}")
 
     print_parallel_safe(
         agent,
@@ -542,6 +559,16 @@ async def destructive_command(
         config = load_config()
         if base_url:
             config.base_url = base_url
+            
+        # Extract organization_id from API key for pricing tracking
+        try:
+            from bugster.utils.user_config import get_api_key
+            api_key = get_api_key()
+            analytics = get_analytics()
+            organization_id = analytics.extract_organization_id(api_key)
+        except Exception as e:
+            logger.warning(f"Could not extract organization_id from API key: {e}")
+            organization_id = None
 
         # Apply Vercel protection bypass query parameter if present
         config = apply_vercel_protection_bypass(config)
@@ -571,6 +598,85 @@ async def destructive_command(
         if not all_agent_tasks:
             DestructiveMessages.no_agents_assigned()
             return
+
+        # Check pricing availability and limit agents to available quota
+        available_destructive_count = None
+        if organization_id:
+            try:
+                pricing_info = check_pricing_availability(organization_id)
+                extra_credit_available = pricing_info.get('extra_credit', 0.0)
+                
+                # Get regular quota info for detailed breakdown
+                available_destructive_regular = pricing_info.get('available_destructive', 0)
+                total_destructive_quota = pricing_info.get('total_destructive', 0)
+                ran_destructive = pricing_info.get('ran_destructive', 0)
+                
+                # Get pricing info from API
+                extra_credit_prices = pricing_info.get('extra_credit_prices', {})
+                destructive_price = extra_credit_prices.get('destructive', 0.10)  # fallback to default
+                
+                # Calculate extra credit capacity locally
+                additional_capacity = int(extra_credit_available / destructive_price) if destructive_price > 0 else 0
+                available_destructive_count = available_destructive_regular + additional_capacity
+                
+                # Calculate if we're using extra credit (quota exceeded but extra credit available)
+                destructive_quota_exceeded_but_extra_credit_available = available_destructive_regular <= 0 and extra_credit_available > 0
+                
+                # Only stop if destructive quota is completely exhausted (including extra_credit)
+                if available_destructive_count <= 0:
+                    DestructiveMessages.error("Destructive quota completely exhausted. Please upgrade your plan or add extra credit.")
+                    raise typer.Exit(1)
+                
+                # Show detailed quota breakdown
+                console.print(f"📊 [bold]Quota Status:[/bold] {ran_destructive}/{total_destructive_quota} destructive agents used (${extra_credit_available:.2f} extra credit available)")
+                
+                # Show extra_credit information if quota is exceeded but extra_credit is available
+                if destructive_quota_exceeded_but_extra_credit_available and extra_credit_available > 0:
+                    console.print(f"⚠️  [yellow]Regular quota exhausted[/yellow], using extra credit for additional agents")
+                    console.print(f"   💳 Extra credit: ${extra_credit_available:.2f} (${destructive_price:.2f} per agent)")
+                
+                # Limit agents to available quota (select first N agents in order)
+                if available_destructive_count < len(all_agent_tasks):
+                    original_count = len(all_agent_tasks)
+                    skipped_count = original_count - available_destructive_count
+                    all_agent_tasks = all_agent_tasks[:available_destructive_count]
+                    
+                    # Calculate breakdown of what will be used
+                    agents_from_regular = min(available_destructive_regular, available_destructive_count)
+                    agents_from_extra_credit = max(0, available_destructive_count - available_destructive_regular)
+                    
+                    # Always show breakdown when using mixed quota/credit
+                    if agents_from_extra_credit > 0 or (available_destructive_regular > 0 and additional_capacity > 0):
+                        console.print(f"⚠️  [yellow]Quota limit:[/yellow] Running {available_destructive_count} destructive agents")
+                        if agents_from_regular > 0:
+                            console.print(f"   📋 Regular quota: {agents_from_regular} agents")
+                        if agents_from_extra_credit > 0:
+                            console.print(f"   💳 Extra credit: {agents_from_extra_credit} agents (${agents_from_extra_credit * destructive_price:.2f})")
+                        console.print(f"   ⏭️  Skipping {skipped_count} agents due to quota/credit limit")
+                    else:
+                        console.print(f"⚠️  [yellow]Quota limit:[/yellow] Running {available_destructive_count} destructive agents from regular quota")
+                        console.print(f"   ⏭️  Skipping {skipped_count} agents due to quota limit")
+                else:
+                    # No limiting needed, show what will be used
+                    agents_from_regular = min(available_destructive_regular, len(all_agent_tasks))
+                    agents_from_extra_credit = max(0, len(all_agent_tasks) - available_destructive_regular)
+                    
+                    # Always show breakdown when using mixed quota/credit
+                    if agents_from_extra_credit > 0 or (available_destructive_regular > 0 and additional_capacity > 0):
+                        console.print(f"📊 [green]Running {len(all_agent_tasks)} destructive agents:[/green]")
+                        if agents_from_regular > 0:
+                            console.print(f"   📋 Regular quota: {agents_from_regular} agents")
+                        if agents_from_extra_credit > 0:
+                            console.print(f"   💳 Extra credit: {agents_from_extra_credit} agents (${agents_from_extra_credit * destructive_price:.2f})")
+                    else:
+                        console.print(f"📊 [green]Running {len(all_agent_tasks)} destructive agents from regular quota[/green]")
+                
+            except typer.Exit:
+                # Re-raise typer.Exit to stop execution
+                raise
+            except Exception as e:
+                logger.warning(f"Could not check pricing availability: {e}")
+                # Continue with agents even if pricing check fails
 
         # Determine max concurrent agents (default to 3 for safety)
         max_concurrent = max_concurrent or 3
@@ -614,6 +720,7 @@ async def destructive_command(
                     run_id,
                     executor,
                     silent,
+                    organization_id,
                 )
                 tasks.append(task)
 
