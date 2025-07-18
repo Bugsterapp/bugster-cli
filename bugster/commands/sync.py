@@ -2,37 +2,52 @@
 Sync command implementation.
 """
 
+import subprocess
+from datetime import datetime, timezone
 from pathlib import Path
-from typing import Dict, Optional, List
+from typing import Dict, List, Optional
+
 import typer
 from rich.console import Console
 from rich.status import Status
-import subprocess
-from datetime import datetime, timezone
 
-from bugster.libs.services.specs_service import SyncService
 from bugster.commands.middleware import require_api_key
+from bugster.constants import TESTS_DIR
+from bugster.libs.services.specs_service import SyncService
 from bugster.utils.yaml_spec import (
+    TestCaseMetadata,
+    YamlTestcase,
     load_spec,
     save_spec,
-    YamlTestcase,
-    TestCaseMetadata,
 )
-from bugster.constants import TESTS_DIR
 
 console = Console()
 
 
 def get_current_branch() -> str:
-    """Get the current git branch name or return 'main' if git is not available."""
+    """Get the current git branch name or commit hash if in detached HEAD state, or return 'main' if git is not available."""
     try:
+        # First try to get the branch name
         result = subprocess.run(
             ["git", "rev-parse", "--abbrev-ref", "HEAD"],
             capture_output=True,
             text=True,
             check=True,
         )
-        return result.stdout.strip()
+        branch_name = result.stdout.strip()
+
+        # If we're in detached HEAD state, git returns "HEAD"
+        # In this case, get the actual commit hash instead
+        if branch_name == "HEAD":
+            commit_result = subprocess.run(
+                ["git", "rev-parse", "--short", "HEAD"],
+                capture_output=True,
+                text=True,
+                check=True,
+            )
+            return commit_result.stdout.strip()
+
+        return branch_name
     except (subprocess.CalledProcessError, FileNotFoundError):
         return "main"
 
@@ -357,7 +372,7 @@ def sync_command(
                                 ].metadata
 
                     # Check if any spec needs metadata update by comparing file content
-                    with open(file, "r") as f:
+                    with open(file) as f:
                         original_content = f.read()
 
                     # Generate new content with metadata

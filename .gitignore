@@ -38,3 +38,5 @@ ENV/
 *.zip
 dummy
 .env
+
+Dockerfile.test
