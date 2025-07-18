@@ -605,8 +605,10 @@ async def destructive_command(
             try:
                 pricing_info = check_pricing_availability(organization_id)
                 available_destructive_count = pricing_info.get('available_destructive_with_extra_credit', 0)
-                destructive_quota_exceeded_but_extra_credit_available = pricing_info.get('destructive_quota_exceeded_but_extra_credit_available', False)
-                extra_credit_available = pricing_info.get('extra_credit_available', 0.0)
+                extra_credit_available = pricing_info.get('extra_credit', 0.0)
+                
+                # Calculate if we're using extra credit (quota exceeded but extra credit available)
+                destructive_quota_exceeded_but_extra_credit_available = available_destructive_regular <= 0 and extra_credit_available > 0
                 
                 # Get regular quota info for detailed breakdown
                 available_destructive_regular = pricing_info.get('available_destructive', 0)

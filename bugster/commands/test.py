@@ -846,8 +846,10 @@ async def test_command(
             try:
                 pricing_info = check_pricing_availability(organization_id)
                 available_test_count = pricing_info.get('available_test_with_extra_credit', 0)
-                test_quota_exceeded_but_extra_credit_available = pricing_info.get('test_quota_exceeded_but_extra_credit_available', False)
-                extra_credit_available = pricing_info.get('extra_credit_available', 0.0)
+                extra_credit_available = pricing_info.get('extra_credit', 0.0)
+                
+                # Calculate if we're using extra credit (quota exceeded but extra credit available)
+                test_quota_exceeded_but_extra_credit_available = available_test_regular <= 0 and extra_credit_available > 0
                 
                 # Get regular quota info for detailed breakdown
                 available_test_regular = pricing_info.get('available_test', 0)
