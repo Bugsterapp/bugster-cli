@@ -845,11 +845,7 @@ async def test_command(
         if organization_id:
             try:
                 pricing_info = check_pricing_availability(organization_id)
-                available_test_count = pricing_info.get('available_test_with_extra_credit', 0)
                 extra_credit_available = pricing_info.get('extra_credit', 0.0)
-                
-                # Calculate if we're using extra credit (quota exceeded but extra credit available)
-                test_quota_exceeded_but_extra_credit_available = available_test_regular <= 0 and extra_credit_available > 0
                 
                 # Get regular quota info for detailed breakdown
                 available_test_regular = pricing_info.get('available_test', 0)
@@ -859,6 +855,13 @@ async def test_command(
                 # Get pricing info from API
                 extra_credit_prices = pricing_info.get('extra_credit_prices', {})
                 test_price = extra_credit_prices.get('test', 0.03)  # fallback to default
+                
+                # Calculate total available capacity (regular quota first, then extra credit)
+                additional_capacity = int(extra_credit_available / test_price) if test_price > 0 else 0
+                available_test_count = available_test_regular + additional_capacity
+                
+                # Calculate if we're using extra credit (quota exceeded but extra credit available)
+                test_quota_exceeded_but_extra_credit_available = available_test_regular <= 0 and extra_credit_available > 0
                 
                 # Only stop if test quota is completely exhausted (including extra_credit)
                 if available_test_count <= 0:
@@ -883,13 +886,14 @@ async def test_command(
                     tests_from_regular = min(available_test_regular, available_test_count)
                     tests_from_extra_credit = max(0, available_test_count - available_test_regular)
                     
-                    if test_quota_exceeded_but_extra_credit_available:
+                    # Always show breakdown when using mixed quota/credit
+                    if tests_from_extra_credit > 0 or (available_test_regular > 0 and additional_capacity > 0):
                         console.print(f"⚠️  [yellow]Quota limit:[/yellow] Running {available_test_count} tests")
                         if tests_from_regular > 0:
                             console.print(f"   📋 Regular quota: {tests_from_regular} tests")
                         if tests_from_extra_credit > 0:
                             console.print(f"   💳 Extra credit: {tests_from_extra_credit} tests (${tests_from_extra_credit * test_price:.2f})")
-                        console.print(f"   ⏭️  Skipping {skipped_count} tests due to quota limit")
+                        console.print(f"   ⏭️  Skipping {skipped_count} tests due to quota/credit limit")
                     else:
                         console.print(f"⚠️  [yellow]Quota limit:[/yellow] Running {available_test_count} tests from regular quota")
                         console.print(f"   ⏭️  Skipping {skipped_count} tests due to quota limit")
@@ -898,11 +902,13 @@ async def test_command(
                     tests_from_regular = min(available_test_regular, len(all_tests))
                     tests_from_extra_credit = max(0, len(all_tests) - available_test_regular)
                     
-                    if tests_from_extra_credit > 0:
+                    # Always show breakdown when using mixed quota/credit
+                    if tests_from_extra_credit > 0 or (available_test_regular > 0 and additional_capacity > 0):
                         console.print(f"📊 [green]Running {len(all_tests)} tests:[/green]")
                         if tests_from_regular > 0:
                             console.print(f"   📋 Regular quota: {tests_from_regular} tests")
-                        console.print(f"   💳 Extra credit: {tests_from_extra_credit} tests (${tests_from_extra_credit * test_price:.2f})")
+                        if tests_from_extra_credit > 0:
+                            console.print(f"   💳 Extra credit: {tests_from_extra_credit} tests (${tests_from_extra_credit * test_price:.2f})")
                     else:
                         console.print(f"📊 [green]Running {len(all_tests)} tests from regular quota[/green]")
                 
