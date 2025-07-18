@@ -33,7 +33,12 @@ class PricingService:
                 client.set_headers({"X-API-Key": self.api_key})
                 endpoint = f"/pricing/info?organization_id={organization_id}"
                 response = client.get(endpoint)
-                return response
+                
+                # Use the response directly from the API (which now includes all calculations)
+                pricing_info = response
+                
+                return pricing_info
+                
         except Exception as e:
             # If organization doesn't exist, it's OK (will be created on first use)
             if hasattr(e, 'response') and e.response.status_code == 404:
