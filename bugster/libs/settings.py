@@ -1,12 +1,15 @@
 # bugster/libs/settings.py
 from enum import Enum
+from typing import Optional
 
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Environment(str, Enum):
-    LOCAL = "localhost"
+    """Environment enumeration."""
+
+    LOCAL = "local"
     DEVELOPMENT = "development"
     PRODUCTION = "production"
 
@@ -55,4 +58,5 @@ class LibsSettings(BaseSettings):
     )
 
 
+# Global instance
 libs_settings = LibsSettings()
