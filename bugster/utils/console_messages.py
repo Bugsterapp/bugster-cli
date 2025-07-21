@@ -439,7 +439,12 @@ class CLIMessages:
         return f"""🔥 [bold {BugsterColors.COMMAND}]Destructive[/bold {BugsterColors.COMMAND}] testing for changed pages
 
     Run AI-powered destructive agents to find potential bugs in your recent code changes.
-    Agents like 'form_destroyer' and 'ui_crasher' will attempt to break your application.
+    Agents like 'ui_crasher' and 'form_destroyer' will attempt to break your application.
+    
+    [{BugsterColors.TEXT_DIM}]Agent Limits:[/{BugsterColors.TEXT_DIM}]
+    • Up to 5 destructive agents per execution
+    • UI Crasher agents are prioritized over Form Destroyer agents
+    • Agents are distributed intelligently across different types
 
     [{BugsterColors.TEXT_DIM}]Examples:[/{BugsterColors.TEXT_DIM}]
       [{BugsterColors.PRIMARY}]bugster destructive[/{BugsterColors.PRIMARY}]                    - Run on all changed pages
@@ -822,4 +827,56 @@ class DestructiveMessages:
         """Show updating final status message."""
         console.print(
             f"[{BugsterColors.INFO}]Updating final destructive run status...[/{BugsterColors.INFO}]"
+        )
+
+    @staticmethod
+    def create_destructive_limit_panel(
+        original_count: int,
+        selected_count: int,
+        max_agents: int,
+        agent_distribution: dict,
+    ):
+        """Create a panel showing destructive agent limit information."""
+        content = []
+
+        if selected_count < original_count:
+            content.append(
+                f"[bold]Destructive agent limit applied:[/bold] Running {selected_count} out of {original_count} agents (limit: {max_agents})"
+            )
+
+            content.append("")  # Empty line for spacing
+            content.append("[bold]Distribution by agent type:[/bold]")
+
+            # Add agent distribution with priority indicators
+            priority_agents = ["ui_crasher", "form_destroyer"]
+            
+            # Show priority agents first
+            for priority_agent in priority_agents:
+                if priority_agent in agent_distribution:
+                    count = agent_distribution[priority_agent]
+                    priority_icon = "🔥" if priority_agent == "ui_crasher" else "🛠️"
+                    priority_text = " (prioritized)" if priority_agent == "ui_crasher" else ""
+                    content.append(
+                        f"{priority_icon} [{BugsterColors.TEXT_DIM}]{priority_agent}[/{BugsterColors.TEXT_DIM}]{priority_text}"
+                    )
+                    content.append(
+                        f"   ▸ [{BugsterColors.TEXT_PRIMARY}]{count} agents[/{BugsterColors.TEXT_PRIMARY}]"
+                    )
+
+            # Show other agents
+            for agent_type, count in sorted(agent_distribution.items()):
+                if agent_type not in priority_agents:
+                    content.append(
+                        f"🤖 [{BugsterColors.TEXT_DIM}]{agent_type}[/{BugsterColors.TEXT_DIM}]"
+                    )
+                    content.append(
+                        f"   ▸ [{BugsterColors.TEXT_PRIMARY}]{count} agents[/{BugsterColors.TEXT_PRIMARY}]"
+                    )
+
+        panel_content = "\n".join(content)
+        return Panel(
+            panel_content,
+            title="⚠️  Destructive Agent Limit Applied",
+            border_style=BugsterColors.WARNING,
+            padding=(1, 2),
         )

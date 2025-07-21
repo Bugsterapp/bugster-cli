@@ -20,6 +20,11 @@ from bugster.commands.sync import get_current_branch
 from bugster.commands.test import apply_vercel_protection_bypass
 from bugster.libs.services.destructive_service import DestructiveService
 from bugster.libs.services.destructive_stream_service import DestructiveStreamService
+from bugster.libs.services.destructive_limits_service import (
+    apply_destructive_limit,
+    count_total_agents,
+    get_destructive_limit_from_config,
+)
 from bugster.types import (
     Config,
     NamedDestructiveResult,
@@ -558,6 +563,26 @@ async def destructive_command(
         if not page_agents:
             DestructiveMessages.no_agents_assigned()
             return
+
+        # Apply destructive agent limits
+        max_agents = get_destructive_limit_from_config()
+        original_count = count_total_agents(page_agents)
+        limited_page_agents, agent_distribution = apply_destructive_limit(page_agents, max_agents)
+        selected_count = count_total_agents(limited_page_agents)
+
+        # Print agent limit information if limiting was applied
+        if int(original_count) > int(max_agents):
+            console.print(
+                DestructiveMessages.create_destructive_limit_panel(
+                    original_count=original_count,
+                    selected_count=selected_count,
+                    max_agents=max_agents,
+                    agent_distribution=agent_distribution
+                )
+            )
+
+        # Use the limited page agents for execution
+        page_agents = limited_page_agents
 
         # Collect all agent tasks
         all_agent_tasks = []
