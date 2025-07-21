@@ -5,7 +5,6 @@ import time
 from pathlib import Path
 
 import typer
-import yaml
 from loguru import logger
 from rich.console import Console
 from rich.prompt import Confirm, Prompt
@@ -86,6 +85,104 @@ def generate_project_id(project_name: str) -> str:
     return f"{safe_name}-{timestamp}"
 
 
+def generate_config_yaml_with_template(
+    project_name: str,
+    project_id: str,
+    base_url: str,
+    credentials: list,
+    bypass_protection: str = "",
+    platform: str = "vercel",
+) -> str:
+    """Generate config.yaml content with commented template options."""
+
+    # Helper function to format YAML string values
+    def format_yaml_string(value: str) -> str:
+        """Format a string value for YAML, adding quotes if needed."""
+        if " " in value or ":" in value or value.startswith("#"):
+            return f'"{value}"'
+        return value
+
+    # Generate the main config with active values
+    config_lines = [
+        "# Bugster Configuration File",
+        "# This file contains your project configuration and test execution preferences.",
+        "",
+        "# Project Information",
+        f"project_name: {format_yaml_string(project_name)}",
+        f"project_id: {format_yaml_string(project_id)}",
+        f"base_url: {format_yaml_string(base_url)}",
+        "",
+        "# Project Authentication",
+        "credentials:",
+    ]
+
+    # Add credentials
+    for cred in credentials:
+        config_lines.extend(
+            [
+                f"  - id: {format_yaml_string(cred['id'])}",
+                f"    username: {format_yaml_string(cred['username'])}",
+                f"    password: {format_yaml_string(cred['password'])}",
+            ]
+        )
+
+    config_lines.append("")
+
+    # Add platform-specific protection bypass section
+    if platform == "vercel":
+        config_lines.extend(
+            [
+                "# Vercel Configuration",
+                "# You can create the Vercel Protection Bypass Secret for Automation in this link:",
+                "# https://vercel.com/d?to=/[team]/[project]/settings/deployment-protection&title=Deployment+Protection+settings",
+            ]
+        )
+        if bypass_protection:
+            config_lines.append(
+                f"x-vercel-protection-bypass: {format_yaml_string(bypass_protection)}"
+            )
+        else:
+            config_lines.append("# x-vercel-protection-bypass: your-bypass-secret")
+    elif platform == "railway":
+        config_lines.extend(
+            [
+                "# Railway Configuration",
+                "# Add your Railway protection bypass secret below:",
+            ]
+        )
+        if bypass_protection:
+            config_lines.append(
+                f"x-railway-protection-bypass: {format_yaml_string(bypass_protection)}"
+            )
+        else:
+            config_lines.append("# x-railway-protection-bypass: your-bypass-secret")
+
+    config_lines.extend(
+        [
+            "",
+            "",
+            "# Test Execution Preferences",
+            "# Uncomment and modify the options below to customize test execution behavior.",
+            "# CLI options will override these settings when specified.",
+            "# preferences:",
+            "#   tests:",
+            "#     always_run:",
+            "#       - .bugster/tests/test1.yaml",
+            "#       - .bugster/tests/test2.yaml",
+            "#     limit: 5                    # Maximum number of tests to run",
+            "#     headless: false             # Run tests in headless mode",
+            "#     silent: false               # Run tests in silent mode",
+            "#     verbose: false              # Enable verbose output",
+            "#     only_affected: false        # Only run tests for affected files",
+            "#     parallel: 5                 # Maximum number of concurrent tests",
+            "#     output: bugster_output.json # Save test results to JSON file",
+            "",
+        ]
+    )
+
+    return "\n".join(config_lines)
+
+
 @track_command("init")
 def init_command(
     api_key: str = None,
@@ -104,21 +201,26 @@ def init_command(
 
     # Validate platform flag
     if platform not in ["vercel", "railway"]:
-        console.print("[red]Error: --platform must be either 'vercel' or 'railway'.[/red]")
+        console.print(
+            "[red]Error: --platform must be either 'vercel' or 'railway'.[/red]"
+        )
         raise typer.Exit(1)
 
     # Handle API key authentication
     current_api_key = get_api_key()
-    
+
     # Use provided API key or get from storage
     if api_key:
         # Validate provided API key
         if not validate_api_key(api_key):
-            console.print("[red]Invalid API key. Please check the format and try again.[/red]")
+            console.print(
+                "[red]Invalid API key. Please check the format and try again.[/red]"
+            )
             raise typer.Exit(1)
-        
+
         # Save the provided API key
         from bugster.utils.user_config import save_api_key
+
         save_api_key(api_key)
         current_api_key = api_key
         console.print("[green]✓ API key saved successfully[/green]")
@@ -138,7 +240,9 @@ def init_command(
 
         InitMessages.auth_success()
     elif not current_api_key and no_auth:
-        console.print("[red]No API key configured and --no-auth flag provided. Please provide --api-key or run without --no-auth.[/red]")
+        console.print(
+            "[red]No API key configured and --no-auth flag provided. Please provide --api-key or run without --no-auth.[/red]"
+        )
         raise typer.Exit(1)
 
     # Check for existing configuration
@@ -159,13 +263,13 @@ def init_command(
 
     # Project setup
     InitMessages.project_setup()
-    
+
     # Use provided project name or prompt for it
     if project_name is None:
         project_name = Prompt.ask("🏷️  Project name", default=Path.cwd().name)
     else:
         console.print(f"🏷️  Project name: {project_name}")
-        
+
     project_path = ""
     with contextlib.suppress(Exception):
         project_path = get_git_prefix_path()
@@ -192,7 +296,7 @@ def init_command(
         project_id = generate_project_id(project_name)
 
     InitMessages.show_project_id(project_id)
-    
+
     # Use provided URL or prompt for it
     if url is None:
         base_url = Prompt.ask("\n🌐 Application URL", default="http://localhost:3000")
@@ -206,29 +310,36 @@ def init_command(
     if no_credentials:
         # Skip credentials setup entirely
         if user is not None or password is not None or credential_name is not None:
-            console.print("[red]Error: Cannot use --user, --password, or --credential-name with --no-credentials.[/red]")
+            console.print(
+                "[red]Error: Cannot use --user, --password, or --credential-name with --no-credentials.[/red]"
+            )
             raise typer.Exit(1)
         else:
-            console.print("🚫 Skipping credential setup (--no-credentials flag provided)")
+            console.print(
+                "🚫 Skipping credential setup (--no-credentials flag provided)"
+            )
     else:
         InitMessages.auth_setup()
-        
+
         # Determine if we should use custom credentials
         use_custom_credentials = False
-        
+
         if user is not None and password is not None:
             # Both user and password provided via flags
             use_custom_credentials = True
             console.print("✓ Using provided login credentials")
         elif user is not None or password is not None:
             # Only one of user/password provided - this is an error
-            console.print("[red]Error: Both --user and --password must be provided together.[/red]")
+            console.print(
+                "[red]Error: Both --user and --password must be provided together.[/red]"
+            )
             raise typer.Exit(1)
         else:
             # No credentials provided via flags, prompt interactively
             if (
                 Prompt.ask(
-                    "➕ Would you like to add custom login credentials? (y/n)", default="y"
+                    "➕ Would you like to add custom login credentials? (y/n)",
+                    default="y",
                 ).lower()
                 == "y"
             ):
@@ -253,7 +364,9 @@ def init_command(
                 username = Prompt.ask("📧 Username/Email")
                 password_value = Prompt.ask("🔒 Password", password=True)
 
-            credentials.append(create_credential_entry(identifier, username, password_value))
+            credentials.append(
+                create_credential_entry(identifier, username, password_value)
+            )
             InitMessages.credential_added()
         else:
             credentials.append(create_credential_entry())
@@ -269,27 +382,17 @@ def init_command(
     update_gitignore()
 
     # Save config
-    config = {
-        "project_name": project_name,
-        "project_id": project_id,
-        "base_url": base_url,
-        "credentials": credentials,
-    }
-    
-    # Add platform-specific protection bypass headers
-    if bypass_protection:
-        if platform == "vercel":
-            config["x-vercel-protection-bypass"] = bypass_protection
-        elif platform == "railway":
-            config["x-railway-protection-bypass"] = bypass_protection
-    else:
-        # Set empty header based on platform for backward compatibility
-        if platform == "vercel":
-            config["x-vercel-protection-bypass"] = ""
-        elif platform == "railway":
-            config["x-railway-protection-bypass"] = ""
+    config_content = generate_config_yaml_with_template(
+        project_name=project_name,
+        project_id=project_id,
+        base_url=base_url,
+        credentials=credentials,
+        bypass_protection=bypass_protection or "",
+        platform=platform,
+    )
+
     with open(CONFIG_PATH, "w") as f:
-        yaml.dump(config, f, default_flow_style=False)
+        f.write(config_content)
 
     # Show success message and summary
     InitMessages.initialization_success()

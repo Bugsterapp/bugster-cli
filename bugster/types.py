@@ -1,4 +1,4 @@
-from typing import Literal, Optional, List
+from typing import List, Literal, Optional
 
 from pydantic import BaseModel, Field
 
@@ -24,8 +24,7 @@ class Credential(BaseModel):
 
 class TestPreferences(BaseModel):
     tests: Optional[dict] = Field(
-        default=None,
-        description="Test execution preferences"
+        default=None, description="Test execution preferences"
     )
 
     @property
@@ -33,6 +32,55 @@ class TestPreferences(BaseModel):
         """Get always_run tests from the tests configuration."""
         if self.tests and "always_run" in self.tests:
             return self.tests["always_run"]
+        return None
+
+    @property
+    def limit(self) -> Optional[int]:
+        """Get test limit from the tests configuration."""
+        if self.tests and "limit" in self.tests:
+            return self.tests["limit"]
+        return None
+
+    @property
+    def headless(self) -> Optional[bool]:
+        """Get headless setting from the tests configuration."""
+        if self.tests and "headless" in self.tests:
+            return self.tests["headless"]
+        return None
+
+    @property
+    def silent(self) -> Optional[bool]:
+        """Get silent setting from the tests configuration."""
+        if self.tests and "silent" in self.tests:
+            return self.tests["silent"]
+        return None
+
+    @property
+    def verbose(self) -> Optional[bool]:
+        """Get verbose setting from the tests configuration."""
+        if self.tests and "verbose" in self.tests:
+            return self.tests["verbose"]
+        return None
+
+    @property
+    def only_affected(self) -> Optional[bool]:
+        """Get only_affected setting from the tests configuration."""
+        if self.tests and "only_affected" in self.tests:
+            return self.tests["only_affected"]
+        return None
+
+    @property
+    def parallel(self) -> Optional[int]:
+        """Get parallel/max_concurrent setting from the tests configuration."""
+        if self.tests and "parallel" in self.tests:
+            return self.tests["parallel"]
+        return None
+
+    @property
+    def output(self) -> Optional[str]:
+        """Get output file setting from the tests configuration."""
+        if self.tests and "output" in self.tests:
+            return self.tests["output"]
         return None
 
 
@@ -45,8 +93,7 @@ class Config(BaseModel):
         None, alias="x-vercel-protection-bypass"
     )
     preferences: Optional[TestPreferences] = Field(
-        default=None,
-        description="Test execution preferences and configurations"
+        default=None, description="Test execution preferences and configurations"
     )
 
 

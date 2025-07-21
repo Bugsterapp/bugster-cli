@@ -178,10 +178,10 @@ def auth(
 def _run_tests(
     path: Optional[str] = Argument(None, help="Path to test file or directory"),
     headless: Optional[bool] = Option(
-        False, "--headless", help="Run tests in headless mode"
+        None, "--headless", help="Run tests in headless mode"
     ),
     silent: Optional[bool] = Option(
-        False, "--silent", "-s", help="Run in silent mode (less verbose output)"
+        None, "--silent", "-s", help="Run in silent mode (less verbose output)"
     ),
     stream_results: bool = Option(
         True,
@@ -203,7 +203,10 @@ def _run_tests(
     max_concurrent: Optional[int] = Option(
         5, "--max-concurrent", "--parallel", help="Maximum number of concurrent tests"
     ),
-    verbose: Optional[bool] = Option(False, "--verbose", help="Verbose output"),
+    verbose: Optional[bool] = Option(None, "--verbose", help="Verbose output"),
+    limit: Optional[int] = Option(
+        None, "--limit", help="Maximum number of tests to run", min=1
+    ),
 ):
     """Run your Bugster tests."""
     import asyncio
@@ -222,6 +225,7 @@ def _run_tests(
             only_affected,
             max_concurrent,
             verbose,
+            limit,
         )
     )
 
