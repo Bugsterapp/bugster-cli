@@ -137,12 +137,7 @@ def init(
     bypass_protection: Optional[str] = Option(
         None,
         "--bypass-protection",
-        help="Protection bypass secret for the specified platform",
-    ),
-    platform: str = Option(
-        "vercel",
-        "--platform",
-        help="Platform type (vercel or railway, default: vercel)",
+        help="Vercel protection bypass secret",
     ),
 ):
     """Initialize Bugster CLI configuration in your project."""
@@ -158,7 +153,6 @@ def init(
         no_auth=no_auth,
         no_credentials=no_credentials,
         bypass_protection=bypass_protection,
-        platform=platform,
     )
 
 
