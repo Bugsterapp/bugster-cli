@@ -9,6 +9,7 @@ import yaml
 from loguru import logger
 from rich.console import Console
 from rich.prompt import Confirm, Prompt
+from rich.table import Table
 
 from bugster.analytics import track_command
 from bugster.clients.http_client import BugsterHTTPClient
@@ -86,6 +87,109 @@ def generate_project_id(project_name: str) -> str:
     return f"{safe_name}-{timestamp}"
 
 
+def fetch_existing_projects(api_key: str):
+    """Fetch existing projects from the API."""
+    try:
+        from bugster.analytics import PostHogClient
+        
+        # Extract organization_id from API key
+        organization_id = PostHogClient.extract_organization_id(api_key)
+        
+        with BugsterHTTPClient() as client:
+            client.set_headers({"x-api-key": api_key})
+            console.print(f"[dim]🔄 Fetching your existing projects...[/dim]")
+            
+            # Make API call with organization_id parameter
+            projects_data = client.get(
+                "/api/v1/gui/projects",
+                params={"organization_id": organization_id}
+            )
+            
+            if isinstance(projects_data, list):
+                return projects_data
+            else:
+                logger.warning(f"Unexpected projects response format: {type(projects_data)}")
+                return []
+                
+    except Exception as e:
+        logger.warning(f"Failed to fetch existing projects: {str(e)}")
+        console.print(f"[yellow]⚠️  Could not fetch existing projects: {str(e)}[/yellow]")
+        return []
+
+
+def display_projects_and_select(projects):
+    """Display existing projects in a table and let user select one."""
+    if not projects:
+        return None
+        
+    console.print(f"\n[bold]📋 Your Existing Projects[/bold]")
+    
+    table = Table(show_header=True, header_style="bold")
+    table.add_column("Index", style="cyan", no_wrap=True)
+    table.add_column("Project Name", style="green")
+    table.add_column("Project ID", style="dim")
+    
+    for i, project in enumerate(projects, 1):
+        table.add_row(str(i), project["name"], project["id"])
+    
+    console.print(table)
+    
+    while True:
+        try:
+            choice = Prompt.ask(
+                f"\n[bold]Enter project index (1-{len(projects)}) or 'new' to create a new project[/bold]",
+                default="new"
+            )
+            
+            if choice.lower() == "new":
+                return None
+            
+            index = int(choice) - 1
+            if 0 <= index < len(projects):
+                selected_project = projects[index]
+                console.print(f"[green]✓ Selected: {selected_project['name']} ({selected_project['id']})[/green]")
+                return selected_project
+            else:
+                console.print(f"[red]Invalid index. Please enter a number between 1 and {len(projects)}[/red]")
+                
+        except ValueError:
+            console.print("[red]Invalid input. Please enter a valid number or 'new'[/red]")
+
+
+def ask_project_choice(api_key: str):
+    """Ask user if they want to create new project or select existing one."""
+    # First, try to fetch existing projects
+    existing_projects = fetch_existing_projects(api_key)
+    breakpoint()
+    
+    if not existing_projects:
+        # No existing projects or couldn't fetch them, proceed with new project
+        console.print(f"[dim]📝 No existing projects found. Creating a new project...[/dim]")
+        return None, None
+        
+    # Ask user what they want to do
+    console.print(f"\n[bold]🎯 Project Setup Options[/bold]")
+    console.print(f"You have {len(existing_projects)} existing project(s).")
+    
+    choice = Prompt.ask(
+        "\n[bold]Would you like to:[/bold]\n"
+        "  [cyan]1.[/cyan] Create a new project\n"
+        "  [cyan]2.[/cyan] Use an existing project\n"
+        "\nEnter your choice",
+        choices=["1", "2", "new", "existing"],
+        default="1"
+    )
+    
+    if choice in ["2", "existing"]:
+        selected_project = display_projects_and_select(existing_projects)
+        if selected_project:
+            return selected_project, existing_projects
+    
+    # Default to creating new project
+    console.print(f"[dim]📝 Creating a new project...[/dim]")
+    return None, existing_projects
+
+
 @track_command("init")
 def init_command(
     api_key: str = None,
@@ -97,15 +201,9 @@ def init_command(
     no_auth: bool = False,
     no_credentials: bool = False,
     bypass_protection: str = None,
-    platform: str = "vercel",
 ):
     """Initialize Bugster CLI configuration."""
     InitMessages.welcome()
-
-    # Validate platform flag
-    if platform not in ["vercel", "railway"]:
-        console.print("[red]Error: --platform must be either 'vercel' or 'railway'.[/red]")
-        raise typer.Exit(1)
 
     # Handle API key authentication
     current_api_key = get_api_key()
@@ -159,39 +257,50 @@ def init_command(
 
     # Project setup
     InitMessages.project_setup()
+    breakpoint()
+    # Ask user to choose between new project or existing project
+    selected_project, existing_projects = ask_project_choice(current_api_key)
     
-    # Use provided project name or prompt for it
-    if project_name is None:
-        project_name = Prompt.ask("🏷️  Project name", default=Path.cwd().name)
+    if selected_project:
+        # User selected an existing project
+        project_name = selected_project["name"]
+        project_id = selected_project["id"]
+        console.print(f"🏷️  Using existing project: {project_name}")
+        InitMessages.show_project_id(project_id)
     else:
-        console.print(f"🏷️  Project name: {project_name}")
-        
-    project_path = ""
-    with contextlib.suppress(Exception):
-        project_path = get_git_prefix_path()
+        # User wants to create a new project
+        # Use provided project name or prompt for it
+        if project_name is None:
+            project_name = Prompt.ask("🏷️  Project name", default=Path.cwd().name)
+        else:
+            console.print(f"🏷️  Project name: {project_name}")
+            
+        project_path = ""
+        with contextlib.suppress(Exception):
+            project_path = get_git_prefix_path()
 
-    # Create project via API
-    try:
-        with BugsterHTTPClient() as client:
-            client.set_headers({"x-api-key": current_api_key})
-            InitMessages.creating_project()
+        # Create project via API
+        try:
+            with BugsterHTTPClient() as client:
+                client.set_headers({"x-api-key": current_api_key})
+                InitMessages.creating_project()
 
-            project_data = client.post(
-                "/api/v1/gui/project",
-                json={"name": project_name, "path": project_path},
-            )
-            project_id = project_data.get("project_id") or project_data.get("id")
+                project_data = client.post(
+                    "/api/v1/gui/project",
+                    json={"name": project_name, "path": project_path},
+                )
+                project_id = project_data.get("project_id") or project_data.get("id")
 
-            if not project_id:
-                raise Exception("Project ID not found in response")
+                if not project_id:
+                    raise Exception("Project ID not found in response")
 
-            InitMessages.project_created()
+                InitMessages.project_created()
 
-    except Exception as e:
-        InitMessages.project_creation_error(str(e))
-        project_id = generate_project_id(project_name)
+        except Exception as e:
+            InitMessages.project_creation_error(str(e))
+            project_id = generate_project_id(project_name)
 
-    InitMessages.show_project_id(project_id)
+        InitMessages.show_project_id(project_id)
     
     # Use provided URL or prompt for it
     if url is None:
@@ -276,18 +385,12 @@ def init_command(
         "credentials": credentials,
     }
     
-    # Add platform-specific protection bypass headers
+    # Add Vercel protection bypass header
     if bypass_protection:
-        if platform == "vercel":
-            config["x-vercel-protection-bypass"] = bypass_protection
-        elif platform == "railway":
-            config["x-railway-protection-bypass"] = bypass_protection
+        config["x-vercel-protection-bypass"] = bypass_protection
     else:
-        # Set empty header based on platform for backward compatibility
-        if platform == "vercel":
-            config["x-vercel-protection-bypass"] = ""
-        elif platform == "railway":
-            config["x-railway-protection-bypass"] = ""
+        # Set empty header for backward compatibility
+        config["x-vercel-protection-bypass"] = ""
     with open(CONFIG_PATH, "w") as f:
         yaml.dump(config, f, default_flow_style=False)
 
