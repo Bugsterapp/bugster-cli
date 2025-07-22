@@ -97,10 +97,13 @@ class UpdateMixin:
 
         # Choose git command based on flags
         if getattr(self, "against_last_update", False):
-            from bugster.libs.utils.update_tracker import get_last_update_commit
+            from bugster.libs.utils.update_tracker import (
+                commit_exists,
+                get_last_update_commit,
+            )
 
             commit_hash = get_last_update_commit()
-            if commit_hash:
+            if commit_hash and commit_exists(commit_hash):
                 # Create command for diffing against specific commit
                 cmd_str = " ".join(
                     GitCommand.DIFF_CHANGES_ONLY_MODIFIED_AGAINST_COMMIT
@@ -186,10 +189,13 @@ class SuggestMixin:
 
         # Choose git command based on flags
         if getattr(self, "against_last_update", False):
-            from bugster.libs.utils.update_tracker import get_last_update_commit
+            from bugster.libs.utils.update_tracker import (
+                commit_exists,
+                get_last_update_commit,
+            )
 
             commit_hash = get_last_update_commit()
-            if commit_hash:
+            if commit_hash and commit_exists(commit_hash):
                 # Create command for diffing against specific commit
                 cmd_str = " ".join(GitCommand.DIFF_AGAINST_COMMIT).format(
                     commit_hash=commit_hash

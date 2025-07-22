@@ -16,7 +16,7 @@ from bugster.libs.utils.git import (
     run_git_command,
 )
 from bugster.libs.utils.nextjs.import_tree_generator import generate_import_tree
-from bugster.libs.utils.update_tracker import get_last_update_commit
+from bugster.libs.utils.update_tracker import commit_exists, get_last_update_commit
 
 
 class UpdateService(ABC):
@@ -59,8 +59,8 @@ class UpdateService(ABC):
         """Get the mapped changes of the user's repository."""
         if self.against_last_update:
             commit_hash = get_last_update_commit()
-            if not commit_hash:
-                # Fallback to against default if no commit hash found
+            if not commit_hash or not commit_exists(commit_hash):
+                # Fallback to against default if no commit hash found or commit doesn't exist
                 diff_name_status = run_git_command(
                     cmd_key=GitCommand.DIFF_NAME_STATUS_AGAINST_DEFAULT_LOCAL
                 )

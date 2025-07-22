@@ -74,3 +74,21 @@ def get_last_update_commit() -> Optional[str]:
 def has_last_update_state() -> bool:
     """Check if there's a previous update state."""
     return get_last_update_state() is not None
+
+
+def commit_exists(commit_hash: str) -> bool:
+    """Check if a commit hash exists in the repository."""
+    if not commit_hash:
+        return False
+
+    try:
+        result = subprocess.run(
+            ["git", "cat-file", "-e", commit_hash],
+            capture_output=True,
+            text=True,
+            check=True,
+            encoding="utf-8",
+        )
+        return result.returncode == 0
+    except subprocess.CalledProcessError:
+        return False
