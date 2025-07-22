@@ -338,6 +338,11 @@ def update(
         "--against-default",
         help="Compare against the default branch instead of HEAD",
     ),
+    against_last_update: bool = Option(
+        False,
+        "--against-last-update",
+        help="Compare against the commit from the last update run",
+    ),
 ):
     """Update your test specs with the latest changes."""
     from bugster.commands.update import update_command
@@ -348,6 +353,7 @@ def update(
         delete_only=delete_only,
         show_logs=show_logs,
         against_default=against_default,
+        against_last_update=against_last_update,
     )
 
 

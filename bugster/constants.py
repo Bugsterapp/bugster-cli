@@ -6,6 +6,7 @@ from pathlib import Path
 WORKING_DIR = Path.cwd()
 BUGSTER_DIR = WORKING_DIR / ".bugster"
 CONFIG_PATH = BUGSTER_DIR / "config.yaml"
+UPDATE_STATE_PATH = BUGSTER_DIR / ".update_state.json"
 TESTS_DIR = BUGSTER_DIR / "tests"
 
 # Ignore patterns for the .gitignore file

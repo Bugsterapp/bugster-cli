@@ -95,12 +95,26 @@ class UpdateMixin:
         file_paths = self.mapped_changes["modified"]
         console.print(f"✓ Found {len(file_paths)} modified files")
 
-        # Choose git command based on against_default flag
-        git_command = (
-            GitCommand.DIFF_CHANGES_ONLY_MODIFIED_AGAINST_DEFAULT_LOCAL
-            if getattr(self, "against_default", False)
-            else GitCommand.DIFF_CHANGES_ONLY_MODIFIED
-        )
+        # Choose git command based on flags
+        if getattr(self, "against_last_update", False):
+            from bugster.libs.utils.update_tracker import get_last_update_commit
+
+            commit_hash = get_last_update_commit()
+            if commit_hash:
+                # Create command for diffing against specific commit
+                cmd_str = " ".join(
+                    GitCommand.DIFF_CHANGES_ONLY_MODIFIED_AGAINST_COMMIT
+                ).format(commit_hash=commit_hash)
+                git_command = cmd_str.split(" ")
+            else:
+                # Fallback to against default
+                git_command = (
+                    GitCommand.DIFF_CHANGES_ONLY_MODIFIED_AGAINST_DEFAULT_LOCAL
+                )
+        elif getattr(self, "against_default", False):
+            git_command = GitCommand.DIFF_CHANGES_ONLY_MODIFIED_AGAINST_DEFAULT_LOCAL
+        else:
+            git_command = GitCommand.DIFF_CHANGES_ONLY_MODIFIED
 
         diff_changes_per_page = get_diff_changes_per_page(
             import_tree=self.import_tree,
@@ -170,12 +184,24 @@ class SuggestMixin:
         file_paths = self.mapped_changes["new"]
         console.print(f"✓ Found {len(file_paths)} added files")
 
-        # Choose git command based on against_default flag
-        git_command = (
-            GitCommand.DIFF_AGAINST_DEFAULT_LOCAL
-            if getattr(self, "against_default", False)
-            else GitCommand.DIFF_HEAD
-        )
+        # Choose git command based on flags
+        if getattr(self, "against_last_update", False):
+            from bugster.libs.utils.update_tracker import get_last_update_commit
+
+            commit_hash = get_last_update_commit()
+            if commit_hash:
+                # Create command for diffing against specific commit
+                cmd_str = " ".join(GitCommand.DIFF_AGAINST_COMMIT).format(
+                    commit_hash=commit_hash
+                )
+                git_command = cmd_str.split(" ")
+            else:
+                # Fallback to against default
+                git_command = GitCommand.DIFF_AGAINST_DEFAULT_LOCAL
+        elif getattr(self, "against_default", False):
+            git_command = GitCommand.DIFF_AGAINST_DEFAULT_LOCAL
+        else:
+            git_command = GitCommand.DIFF_HEAD
 
         diff_changes_per_page = get_diff_changes_per_page(
             import_tree=self.import_tree, git_command=git_command

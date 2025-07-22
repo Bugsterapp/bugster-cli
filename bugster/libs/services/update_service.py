@@ -1,3 +1,4 @@
+import subprocess
 from abc import ABC, abstractmethod
 from typing import Optional
 
@@ -15,6 +16,7 @@ from bugster.libs.utils.git import (
     run_git_command,
 )
 from bugster.libs.utils.nextjs.import_tree_generator import generate_import_tree
+from bugster.libs.utils.update_tracker import get_last_update_commit
 
 
 class UpdateService(ABC):
@@ -24,11 +26,13 @@ class UpdateService(ABC):
         self,
         test_cases_service: Optional["TestCasesService"] = None,
         against_default: bool = False,
+        against_last_update: bool = False,
     ):
         self._test_cases_service = test_cases_service
         self._mapped_changes: Optional[dict] = None
         self._import_tree: Optional[dict] = None
         self.against_default = against_default
+        self.against_last_update = against_last_update
 
     @property
     def test_cases_service(self) -> TestCasesService:
@@ -53,7 +57,30 @@ class UpdateService(ABC):
 
     def _get_mapped_changes(self) -> dict:
         """Get the mapped changes of the user's repository."""
-        if self.against_default:
+        if self.against_last_update:
+            commit_hash = get_last_update_commit()
+            if not commit_hash:
+                # Fallback to against default if no commit hash found
+                diff_name_status = run_git_command(
+                    cmd_key=GitCommand.DIFF_NAME_STATUS_AGAINST_DEFAULT_LOCAL
+                )
+                return parse_diff_name_status(diff_name_status=diff_name_status)
+
+            # Use GitCommand with commit hash following project pattern
+            cmd_str = " ".join(GitCommand.DIFF_NAME_STATUS_AGAINST_COMMIT).format(
+                commit_hash=commit_hash
+            )
+            cmd_list = cmd_str.split(" ")
+
+            result = subprocess.run(
+                cmd_list,
+                capture_output=True,
+                text=True,
+                check=True,
+                encoding="utf-8",
+            )
+            return parse_diff_name_status(diff_name_status=result.stdout)
+        elif self.against_default:
             # When comparing against default branch, use git diff --name-status
             diff_name_status = run_git_command(
                 cmd_key=GitCommand.DIFF_NAME_STATUS_AGAINST_DEFAULT_LOCAL
@@ -126,13 +153,22 @@ def get_update_service(
     suggest_only: bool,
     delete_only: bool,
     against_default: bool = False,
+    against_last_update: bool = False,
 ):
     """Get the update service based on the flags."""
     if update_only:
-        return UpdateOnlyService(against_default=against_default)
+        return UpdateOnlyService(
+            against_default=against_default, against_last_update=against_last_update
+        )
     elif suggest_only:
-        return SuggestOnlyService(against_default=against_default)
+        return SuggestOnlyService(
+            against_default=against_default, against_last_update=against_last_update
+        )
     elif delete_only:
-        return DeleteOnlyService(against_default=against_default)
+        return DeleteOnlyService(
+            against_default=against_default, against_last_update=against_last_update
+        )
     else:
-        return DefaultUpdateService(against_default=against_default)
+        return DefaultUpdateService(
+            against_default=against_default, against_last_update=against_last_update
+        )

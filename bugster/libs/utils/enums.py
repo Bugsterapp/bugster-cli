@@ -107,3 +107,35 @@ class GitCommand(list, Enum):
             "-- '*.tsx' '*.ts' '*.js' '*.jsx'"
         ),
     ]
+    DIFF_NAME_STATUS_AGAINST_COMMIT = [
+        "git",
+        "diff",
+        "--name-status",
+        "{commit_hash}",
+        "--",
+        "*.tsx",
+        "*.ts",
+        "*.js",
+        "*.jsx",
+    ]
+    DIFF_CHANGES_ONLY_MODIFIED_AGAINST_COMMIT = [
+        "git",
+        "diff",
+        "--diff-filter=M",
+        "{commit_hash}",
+        "--",
+        "*.tsx",
+        "*.ts",
+        "*.js",
+        "*.jsx",
+    ]
+    DIFF_AGAINST_COMMIT = [
+        "git",
+        "diff",
+        "{commit_hash}",
+        "--",
+        "*.tsx",
+        "*.ts",
+        "*.js",
+        "*.jsx",
+    ]
