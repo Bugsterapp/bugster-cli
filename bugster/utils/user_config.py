@@ -24,7 +24,7 @@ def load_user_config() -> dict:
         return {}
 
     try:
-        with open(config_file) as f:
+        with open(config_file, encoding="utf-8") as f:
             return json.load(f)
     except json.JSONDecodeError:
         return {}
@@ -37,7 +37,7 @@ def save_user_config(config: dict) -> None:
     # Create parent directories if they don't exist
     config_file.parent.mkdir(parents=True, exist_ok=True)
 
-    with open(config_file, "w") as f:
+    with open(config_file, "w", encoding="utf-8") as f:
         json.dump(config, f, indent=2)
 
 

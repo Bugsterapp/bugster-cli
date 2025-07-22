@@ -63,11 +63,11 @@ def update_gitignore():
     # Read existing entries
     existing_entries = []
     if gitignore_path.exists():
-        with open(gitignore_path) as f:
+        with open(gitignore_path, encoding="utf-8") as f:
             existing_entries = f.read().splitlines()
 
     # Add missing entries
-    with open(gitignore_path, "a") as f:
+    with open(gitignore_path, "a", encoding="utf-8") as f:
         if existing_entries and existing_entries[-1] != "":
             f.write("\n")  # Add newline if file doesn't end with one
 
@@ -391,7 +391,7 @@ def init_command(
         platform=platform,
     )
 
-    with open(CONFIG_PATH, "w") as f:
+    with open(CONFIG_PATH, "w", encoding="utf-8") as f:
         f.write(config_content)
 
     # Show success message and summary

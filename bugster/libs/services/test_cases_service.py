@@ -29,6 +29,7 @@ def _ordered_dict_representer(dumper: yaml.Dumper, data: OrderedDict):
 
 yaml.add_representer(OrderedDict, _ordered_dict_representer)
 
+
 def has_yaml_test_cases() -> bool:
     """Check if there are any YAML test case files in the TESTS_DIR."""
     if not TESTS_DIR.exists():
@@ -44,6 +45,7 @@ def has_yaml_test_cases() -> bool:
             return True
 
     return False
+
 
 def get_or_create_folder(folder_name: str) -> str:
     """Get or create a folder with a given name."""
@@ -86,7 +88,7 @@ class TestCasesService:
 
         if not self.analysis_json_path:
             raise BugsterError("Analysis JSON path is not set")
- 
+
         if not os.path.exists(self.analysis_json_path):
             raise BugsterError(
                 "Analysis JSON file not found, execute bugster analyze first"
@@ -124,7 +126,7 @@ class TestCasesService:
         if count is not None:
             data["count"] = count
 
-        with open(self.analysis_json_path) as file:
+        with open(self.analysis_json_path, encoding="utf-8") as file:
             analysis_data = yaml.safe_load(file)
             payload = {"json": analysis_data, "data": data}
 
@@ -184,7 +186,7 @@ class TestCasesService:
             if key not in field_order:
                 ordered_test_case[key] = value
 
-        with open(file_path, "w") as f:
+        with open(file_path, "w", encoding="utf-8") as f:
             yaml.dump(ordered_test_case, f, default_flow_style=False, sort_keys=False)
 
         logger.info("Saved test case to {}", file_path)
@@ -272,7 +274,7 @@ class TestCasesService:
                     )
         except Exception as err:
             logger.error("Error updating onboarding status: {}", err)
-            
+
         for test_case in test_cases:
             self._save_test_case_as_yaml(test_case=test_case)
 
@@ -307,7 +309,7 @@ class TestCasesService:
             if key not in field_order:
                 ordered_spec_data[key] = value
 
-        with open(path, "w") as f:
+        with open(path, "w", encoding="utf-8") as f:
             yaml.dump(ordered_spec_data, f, default_flow_style=False, sort_keys=False)
 
     def update_spec_by_diff(

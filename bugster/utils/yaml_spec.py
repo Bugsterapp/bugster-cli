@@ -2,13 +2,14 @@
 YAML Spec parser with metadata handling.
 """
 
-from datetime import datetime, timezone
-import uuid
-from typing import List, Dict, Any, Optional
-from pathlib import Path
-import yaml
 import json
+import uuid
 from dataclasses import dataclass
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Any, List, Optional
+
+import yaml
 from loguru import logger
 
 
@@ -118,7 +119,7 @@ def load_spec(file_path: Path) -> List[YamlTestcase]:
     if not file_path.exists():
         raise FileNotFoundError(f"File not found: {file_path}")
 
-    with open(file_path) as f:
+    with open(file_path, encoding="utf-8") as f:
         content = f.read()
 
     return parse_yaml_with_testcases(content)
@@ -127,5 +128,5 @@ def load_spec(file_path: Path) -> List[YamlTestcase]:
 def save_spec(file_path: Path, test_cases: List[YamlTestcase]) -> None:
     """Save test cases to a YAML file"""
     content = "\n\n".join(test_case.to_yaml() for test_case in test_cases)
-    with open(file_path, "w") as f:
+    with open(file_path, "w", encoding="utf-8") as f:
         f.write(content)

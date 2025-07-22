@@ -26,7 +26,7 @@ def load_config() -> Config:
         )
         raise typer.Exit(1)
 
-    with open(CONFIG_PATH) as f:
+    with open(CONFIG_PATH, encoding="utf-8") as f:
         return Config(**yaml.safe_load(f))
 
 
@@ -92,7 +92,7 @@ def get_mcp_config_path(mcp_config: dict, version: str) -> str:
     #     # Write the configuration
     #     with open(config_path, "w") as f:
     #         json.dump(mcp_config, f, indent=2)
-    with open(config_path, "w") as f:
+    with open(config_path, "w", encoding="utf-8") as f:
         json.dump(mcp_config, f, indent=2)
 
     return str(config_path)
