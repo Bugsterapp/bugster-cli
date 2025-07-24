@@ -263,13 +263,17 @@ class TestCasesService:
 
         logger.info("Saving test cases as YAML files...")
         try:
+            from bugster.utils.file import load_config
+
             is_first_run = not has_yaml_test_cases()
+            config = load_config()
+            project_id = config.project_id
 
             if is_first_run:
                 with BugsterHTTPClient() as client:
                     client.set_headers({"x-api-key": get_api_key()})
                     client.patch(
-                        "/api/v1/users/me/onboarding-status",
+                        f"/api/v1/gui/projects/{project_id}/onboarding-status",
                         json={"generate": "completed"},
                     )
         except Exception as err:
