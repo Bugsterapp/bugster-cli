@@ -44,7 +44,7 @@ class HTTPClient:
         endpoint: str,
         data: Optional[Dict[str, Any]] = None,
         json: Optional[Dict[str, Any]] = None,
-        **kwargs, 
+        **kwargs,
     ) -> requests.Response:
         """Make a PATCH request."""
         return self._make_request("PATCH", endpoint, data=data, json=json, **kwargs)
@@ -121,6 +121,6 @@ class HTTPClient:
 class BugsterHTTPClient(HTTPClient):
     """HTTP client for the Bugster API."""
 
-    def __init__(self):
+    def __init__(self, base_url: Optional[str] = None):
         """Initialize the HTTP client."""
-        super().__init__(base_url=libs_settings.bugster_api_url)
+        super().__init__(base_url=base_url or libs_settings.bugster_api_url)
