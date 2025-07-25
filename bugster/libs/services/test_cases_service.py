@@ -12,7 +12,6 @@ from rich.status import Status
 from bugster.analyzer.core.framework_detector import get_project_info
 from bugster.clients.http_client import BugsterHTTPClient
 from bugster.constants import BUGSTER_DIR, TESTS_DIR
-from bugster.libs.settings import libs_settings
 from bugster.libs.utils.enums import BugsterApiPath
 from bugster.libs.utils.errors import BugsterError
 from bugster.libs.utils.files import get_specs_pages, get_specs_paths
@@ -131,9 +130,7 @@ class TestCasesService:
             analysis_data = yaml.safe_load(file)
             payload = {"json": analysis_data, "data": data}
 
-            with BugsterHTTPClient(
-                base_url=libs_settings.generate_api_url or libs_settings.bugster_api_url
-            ) as client:
+            with BugsterHTTPClient() as client:
                 api_key = get_api_key()
 
                 if api_key:
@@ -197,9 +194,7 @@ class TestCasesService:
 
     def _check_results(self, job_id: str) -> str:
         """Get the status of a job."""
-        with BugsterHTTPClient(
-            base_url=libs_settings.generate_api_url or libs_settings.bugster_api_url
-        ) as client:
+        with BugsterHTTPClient() as client:
             api_key = get_api_key()
 
             if api_key:
