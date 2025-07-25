@@ -941,12 +941,16 @@ async def test_command(
         RunMessages.error(e)
         raise typer.Exit(1) from None
     finally:
+        from bugster.utils.file import load_config
+
         is_first_run = check_and_update_project_commands(command_name="test")
+        config = load_config()
+        project_id = config.project_id
 
         if is_first_run:
             with BugsterHTTPClient() as client:
                 client.set_headers({"x-api-key": get_api_key()})
                 client.patch(
-                    "/api/v1/users/me/onboarding-status",
+                    f"/api/v1/gui/projects/{project_id}/onboarding-status",
                     json={"run": "completed"},
                 )
