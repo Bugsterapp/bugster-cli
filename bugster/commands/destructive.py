@@ -168,7 +168,15 @@ async def execute_destructive_agent(
             silent,
             force_compact=True,
         )
-        await ws_client.connect()
+        try:
+            await asyncio.wait_for(
+                ws_client.connect(),
+                timeout=30.0,  # 30 seconds for WebSocket connection
+            )
+        except asyncio.TimeoutError:
+            raise RuntimeError(
+                f"WebSocket connection timed out for agent {agent} on page {page}"
+            )
         print_parallel_safe(
             agent,
             page,
@@ -204,7 +212,15 @@ async def execute_destructive_agent(
         if kwargs.get("headless"):
             mcp_args.append("--headless")
 
-        await mcp_client.init_client(mcp_command, mcp_args)
+        try:
+            await asyncio.wait_for(
+                mcp_client.init_client(mcp_command, mcp_args),
+                timeout=60.0,  # 60 seconds total for MCP initialization
+            )
+        except asyncio.TimeoutError:
+            raise RuntimeError(
+                f"MCP client initialization timed out for agent {agent} on page {page}"
+            )
 
         # Send initial destructive agent data with config
         # TODO: The init message response is taking too long to come back,

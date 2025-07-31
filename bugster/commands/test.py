@@ -323,7 +323,13 @@ async def execute_test(test: Test, config: Config, **kwargs) -> NamedTestResult:
             silent,
             force_compact=True,
         )
-        await ws_client.connect()
+        try:
+            await asyncio.wait_for(
+                ws_client.connect(),
+                timeout=30.0,  # 30 seconds for WebSocket connection
+            )
+        except asyncio.TimeoutError:
+            raise RuntimeError(f"WebSocket connection timed out for test {test.name}")
         print_parallel_safe(
             test.name,
             "Connected successfully!",
@@ -359,7 +365,15 @@ async def execute_test(test: Test, config: Config, **kwargs) -> NamedTestResult:
         if kwargs.get("headless"):
             mcp_args.append("--headless")
         # ================================
-        await mcp_client.init_client(mcp_command, mcp_args)
+        try:
+            await asyncio.wait_for(
+                mcp_client.init_client(mcp_command, mcp_args),
+                timeout=60.0,  # 60 seconds total for MCP initialization
+            )
+        except asyncio.TimeoutError:
+            raise RuntimeError(
+                f"MCP client initialization timed out for test {test.name}"
+            )
 
         # Send initial test data with config
         await ws_client.send(
