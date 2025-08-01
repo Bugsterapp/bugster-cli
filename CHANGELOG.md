@@ -5,6 +5,19 @@ All notable changes to Bugster CLI will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.1]
+
+### Added
+- Credentials validation in `bugster init` - prevents empty username/password entries
+- Localhost reminder in `bugster run` - warns users to ensure app is running before tests
+- CI/CD integration warning in `bugster init` - clear instructions on which files to commit
+- Enhanced messaging system with proper console message methods
+
+### Changed
+- Improved URL prompt in `bugster init` - clarifies localhost usage and CI/CD auto-changes
+- Better credentials explanation - explains when authentication gateway credentials are needed
+- Config.yaml now includes commit reminder comment for CI/CD integration
+
 ## [0.3.30]
 
 ### Added
