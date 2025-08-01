@@ -198,7 +198,7 @@ class InitMessages:
             f"[bold][{BugsterColors.TEXT_PRIMARY}]Next steps:[/{BugsterColors.TEXT_PRIMARY}][/bold]\n"
             f"1. [{BugsterColors.COMMAND}]bugster generate[/{BugsterColors.COMMAND}] - Generate test specs\n"
             f"2. [{BugsterColors.COMMAND}]bugster run[/{BugsterColors.COMMAND}] - Run your specs\n"
-            f"3. [{BugsterColors.TEXT_DIM}]Integrate Bugster with GitHub [{BugsterColors.LINK}]https://gui.bugster.dev/dashboard[/{BugsterColors.LINK}][/{BugsterColors.TEXT_DIM}]\n\n"
+            f"3. [{BugsterColors.TEXT_DIM}]Integrate Bugster with GitHub [{BugsterColors.LINK}]https://app.bugster.dev/dashboard[/{BugsterColors.LINK}][/{BugsterColors.TEXT_DIM}]\n\n"
             f"[{BugsterColors.TEXT_DIM}]Need help? Visit [{BugsterColors.LINK}]https://docs.bugster.dev[/{BugsterColors.LINK}][/{BugsterColors.TEXT_DIM}]",
             title="🚀 Ready to Go",
             border_style=BugsterColors.SUCCESS,
@@ -213,7 +213,7 @@ class AuthMessages:
         """Create and return the authentication panel."""
         return Panel(
             f"[bold]To use Bugster CLI, you need an API key from your Bugster dashboard.[/bold]\n\n"
-            f"1. Visit [{BugsterColors.LINK}]https://gui.bugster.dev[/{BugsterColors.LINK}]\n"
+            f"1. Visit [{BugsterColors.LINK}]https://app.bugster.dev[/{BugsterColors.LINK}]\n"
             "2. Sign up or log in to your account\n"
             "3. Copy your API key from the dashboard\n"
             "4. Paste it below to authenticate this CLI",
@@ -231,7 +231,7 @@ class AuthMessages:
     def opening_dashboard():
         """Show opening dashboard message."""
         console.print(
-            f"🔍 [{BugsterColors.TEXT_DIM}]Opening https://gui.bugster.dev in your browser...[/{BugsterColors.TEXT_DIM}]"
+            f"🔍 [{BugsterColors.TEXT_DIM}]Opening https://app.bugster.dev in your browser...[/{BugsterColors.TEXT_DIM}]"
         )
 
     @staticmethod
@@ -358,7 +358,7 @@ class CLIMessages:
             ("", None),
             (f"[{BugsterColors.TEXT_DIM}]Links:[/{BugsterColors.TEXT_DIM}]", "left"),
             (
-                f"  🌐 Dashboard: [{BugsterColors.LINK}]https://gui.bugster.dev[/{BugsterColors.LINK}]",
+                f"  🌐 Dashboard: [{BugsterColors.LINK}]https://app.bugster.dev[/{BugsterColors.LINK}]",
                 "left",
             ),
             (
@@ -387,7 +387,7 @@ class CLIMessages:
     4. [bold {BugsterColors.COMMAND}]bugster update[/bold {BugsterColors.COMMAND}]      - Update your test cases
     5. [bold {BugsterColors.COMMAND}]bugster sync[/bold {BugsterColors.COMMAND}]        - Sync your test cases with the remote repository
 
-    [{BugsterColors.TEXT_DIM}]Visit [{BugsterColors.LINK}]https://gui.bugster.dev[/{BugsterColors.LINK}] to get started![/{BugsterColors.TEXT_DIM}]"""
+    [{BugsterColors.TEXT_DIM}]Visit [{BugsterColors.LINK}]https://app.bugster.dev[/{BugsterColors.LINK}] to get started![/{BugsterColors.TEXT_DIM}]"""
 
     @staticmethod
     def get_init_help():
