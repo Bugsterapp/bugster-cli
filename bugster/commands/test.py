@@ -752,6 +752,10 @@ async def test_command(
 
         # Apply Vercel protection bypass query parameter if present
         config = apply_vercel_protection_bypass(config)
+        
+        # Remind user to ensure localhost is running
+        if not silent:
+            RunMessages.localhost_reminder(config.base_url)
 
         path = Path(test_path) if test_path else None
 

@@ -106,6 +106,7 @@ def generate_config_yaml_with_template(
     config_lines = [
         "# Bugster Configuration File",
         "# This file contains your project configuration and test execution preferences.",
+        "# Important: Commit this file to your repository for CI/CD integration to work properly.",
         "",
         "# Project Information",
         f"project_name: {format_yaml_string(project_name)}",
@@ -299,7 +300,8 @@ def init_command(
 
     # Use provided URL or prompt for it
     if url is None:
-        base_url = Prompt.ask("\n🌐 Application URL", default="http://localhost:3000")
+        InitMessages.url_explanation()
+        base_url = Prompt.ask("🌐 Application URL (localhost)", default="http://localhost:3000")
     else:
         base_url = url
         console.print(f"🌐 Application URL: {base_url}")
@@ -320,11 +322,16 @@ def init_command(
             )
     else:
         InitMessages.auth_setup()
+        InitMessages.credentials_explanation()
 
         # Determine if we should use custom credentials
         use_custom_credentials = False
 
         if user is not None and password is not None:
+            # Validate provided credentials are not empty
+            if not user.strip() or not password.strip():
+                InitMessages.empty_credentials_error()
+                raise typer.Exit(1)
             # Both user and password provided via flags
             use_custom_credentials = True
             console.print("✓ Using provided login credentials")
@@ -361,8 +368,20 @@ def init_command(
                     "👤 Credential name",
                     default="admin",
                 )
-                username = Prompt.ask("📧 Username/Email")
-                password_value = Prompt.ask("🔒 Password", password=True)
+                
+                # Validate username
+                while True:
+                    username = Prompt.ask("📧 Username/Email")
+                    if username.strip():
+                        break
+                    InitMessages.empty_username_error()
+                
+                # Validate password
+                while True:
+                    password_value = Prompt.ask("🔒 Password", password=True)
+                    if password_value.strip():
+                        break
+                    InitMessages.empty_password_error()
 
             credentials.append(
                 create_credential_entry(identifier, username, password_value)

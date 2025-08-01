@@ -326,7 +326,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ## Support
 
 - 📚 **Documentation**: [docs.bugster.dev](https://docs.bugster.dev)
-- 🌐 **Dashboard**: [gui.bugster.dev](https://gui.bugster.dev)
+- 🌐 **Dashboard**: [app.bugster.dev](https://app.bugster.dev)
 - 🐙 **GitHub**: [github.com/Bugsterapp/bugster-cli](https://github.com/Bugsterapp/bugster-cli)
 - 💬 **Issues**: [GitHub Issues](https://github.com/Bugsterapp/bugster-cli/issues)
 
@@ -335,7 +335,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 <div align="center">
   <p>Built with ❤️ by Bugster</p>
   <p>
-    <a href="https://gui.bugster.dev">Dashboard</a> •
+    <a href="https://app.bugster.dev">Dashboard</a> •
     <a href="https://docs.bugster.dev">Documentation</a> •
     <a href="https://github.com/Bugsterapp/bugster-cli">GitHub</a>
   </p>

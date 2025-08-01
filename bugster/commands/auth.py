@@ -12,7 +12,7 @@ from typing import Optional
 
 console = Console()
 
-DASHBOARD_URL = "https://gui.bugster.dev/"  # Update this with your actual dashboard URL
+DASHBOARD_URL = "https://app.bugster.dev/"  # Update this with your actual dashboard URL
 API_KEY_HINT = "bugster_..."
 
 def clear_api_key():

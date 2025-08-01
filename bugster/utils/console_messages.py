@@ -194,15 +194,63 @@ class InitMessages:
     def create_success_panel():
         """Create and return success panel."""
         return Panel(
+            f"[bold][{BugsterColors.WARNING}]⚠️  Important for CI/CD Integration[/{BugsterColors.WARNING}][/bold]\n"
+            f"[{BugsterColors.TEXT_PRIMARY}]To ensure Bugster works properly in CI/CD pipelines, you must commit these files:[/{BugsterColors.TEXT_PRIMARY}]\n"
+            f"• [{BugsterColors.COMMAND}].bugster/config.yaml[/{BugsterColors.COMMAND}] - Project configuration\n"
+            f"• [{BugsterColors.COMMAND}].bugster/tests/[/{BugsterColors.COMMAND}] - Test specifications (when created)\n"
+            f"• [{BugsterColors.COMMAND}].gitignore[/{BugsterColors.COMMAND}] - Updated with Bugster entries\n\n"
             f"[bold][{BugsterColors.SUCCESS}]🎉 You're all set![/{BugsterColors.SUCCESS}][/bold]\n\n"
             f"[bold][{BugsterColors.TEXT_PRIMARY}]Next steps:[/{BugsterColors.TEXT_PRIMARY}][/bold]\n"
             f"1. [{BugsterColors.COMMAND}]bugster generate[/{BugsterColors.COMMAND}] - Generate test specs\n"
             f"2. [{BugsterColors.COMMAND}]bugster run[/{BugsterColors.COMMAND}] - Run your specs\n"
-            f"3. [{BugsterColors.TEXT_DIM}]Integrate Bugster with GitHub [{BugsterColors.LINK}]https://gui.bugster.dev/dashboard[/{BugsterColors.LINK}][/{BugsterColors.TEXT_DIM}]\n\n"
+            f"3. [{BugsterColors.TEXT_DIM}]Integrate Bugster with GitHub [{BugsterColors.LINK}]https://app.bugster.dev/dashboard[/{BugsterColors.LINK}][/{BugsterColors.TEXT_DIM}]\n\n"
             f"[{BugsterColors.TEXT_DIM}]Need help? Visit [{BugsterColors.LINK}]https://docs.bugster.dev[/{BugsterColors.LINK}][/{BugsterColors.TEXT_DIM}]",
             title="🚀 Ready to Go",
             border_style=BugsterColors.SUCCESS,
         )
+
+    @staticmethod
+    def url_explanation():
+        """Show URL explanation message."""
+        console.print(
+            f"\n[{BugsterColors.TEXT_DIM}]The application URL is used for localhost testing. This URL will be automatically[/{BugsterColors.TEXT_DIM}]"
+        )
+        console.print(
+            f"[{BugsterColors.TEXT_DIM}]changed when using Bugster in CI/CD pipelines.[/{BugsterColors.TEXT_DIM}]"
+        )
+
+    @staticmethod
+    def credentials_explanation():
+        """Show credentials explanation message."""
+        console.print(
+            f"[{BugsterColors.TEXT_DIM}]Credentials are needed only if you want to test features behind an authentication[/{BugsterColors.TEXT_DIM}]"
+        )
+        console.print(
+            f"[{BugsterColors.TEXT_DIM}]gateway. Bugster needs these to authenticate in your app to run tests.[/{BugsterColors.TEXT_DIM}]\n"
+        )
+
+    @staticmethod
+    def empty_credentials_error():
+        """Show empty credentials error message."""
+        console.print(
+            f"[{BugsterColors.ERROR}]Error: Username and password cannot be empty.[/{BugsterColors.ERROR}]"
+        )
+
+    @staticmethod
+    def empty_username_error():
+        """Show empty username error message."""
+        console.print(
+            f"[{BugsterColors.ERROR}]Username cannot be empty. Please enter a valid username.[/{BugsterColors.ERROR}]"
+        )
+
+    @staticmethod
+    def empty_password_error():
+        """Show empty password error message."""
+        console.print(
+            f"[{BugsterColors.ERROR}]Password cannot be empty. Please enter a valid password.[/{BugsterColors.ERROR}]"
+        )
+
+
 
 
 class AuthMessages:
@@ -213,7 +261,7 @@ class AuthMessages:
         """Create and return the authentication panel."""
         return Panel(
             f"[bold]To use Bugster CLI, you need an API key from your Bugster dashboard.[/bold]\n\n"
-            f"1. Visit [{BugsterColors.LINK}]https://gui.bugster.dev[/{BugsterColors.LINK}]\n"
+            f"1. Visit [{BugsterColors.LINK}]https://app.bugster.dev[/{BugsterColors.LINK}]\n"
             "2. Sign up or log in to your account\n"
             "3. Copy your API key from the dashboard\n"
             "4. Paste it below to authenticate this CLI",
@@ -231,7 +279,7 @@ class AuthMessages:
     def opening_dashboard():
         """Show opening dashboard message."""
         console.print(
-            f"🔍 [{BugsterColors.TEXT_DIM}]Opening https://gui.bugster.dev in your browser...[/{BugsterColors.TEXT_DIM}]"
+            f"🔍 [{BugsterColors.TEXT_DIM}]Opening https://app.bugster.dev in your browser...[/{BugsterColors.TEXT_DIM}]"
         )
 
     @staticmethod
@@ -358,7 +406,7 @@ class CLIMessages:
             ("", None),
             (f"[{BugsterColors.TEXT_DIM}]Links:[/{BugsterColors.TEXT_DIM}]", "left"),
             (
-                f"  🌐 Dashboard: [{BugsterColors.LINK}]https://gui.bugster.dev[/{BugsterColors.LINK}]",
+                f"  🌐 Dashboard: [{BugsterColors.LINK}]https://app.bugster.dev[/{BugsterColors.LINK}]",
                 "left",
             ),
             (
@@ -387,7 +435,7 @@ class CLIMessages:
     4. [bold {BugsterColors.COMMAND}]bugster update[/bold {BugsterColors.COMMAND}]      - Update your test cases
     5. [bold {BugsterColors.COMMAND}]bugster sync[/bold {BugsterColors.COMMAND}]        - Sync your test cases with the remote repository
 
-    [{BugsterColors.TEXT_DIM}]Visit [{BugsterColors.LINK}]https://gui.bugster.dev[/{BugsterColors.LINK}] to get started![/{BugsterColors.TEXT_DIM}]"""
+    [{BugsterColors.TEXT_DIM}]Visit [{BugsterColors.LINK}]https://app.bugster.dev[/{BugsterColors.LINK}] to get started![/{BugsterColors.TEXT_DIM}]"""
 
     @staticmethod
     def get_init_help():
@@ -615,6 +663,14 @@ class RunMessages:
         """Show error message."""
         console.print(
             f"[{BugsterColors.ERROR}]Error: {message}[/{BugsterColors.ERROR}]"
+        )
+
+    @staticmethod
+    def localhost_reminder(base_url):
+        """Show localhost reminder message."""
+        console.print(
+            f"[{BugsterColors.WARNING}]💡 Reminder: Make sure your application is running on the configured URL "
+            f"({base_url}) before running tests.[/{BugsterColors.WARNING}]\n"
         )
 
     @staticmethod
