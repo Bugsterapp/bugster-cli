@@ -955,8 +955,6 @@ async def test_command(
         RunMessages.error(e)
         raise typer.Exit(1) from None
     finally:
-        from bugster.utils.file import load_config
-
         is_first_run = check_and_update_project_commands(command_name="test")
         config = load_config()
         project_id = config.project_id
