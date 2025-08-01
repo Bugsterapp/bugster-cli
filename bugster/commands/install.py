@@ -145,7 +145,7 @@ def install_github_command():
                             console.print("\n🎉 [green]GitHub integration completed successfully![/green]")
                         else:
                             console.print("\n⚠️  [yellow]GitHub app installed but repository integration failed.[/yellow]")
-                            console.print("🌐 You can try again later or visit [blue]https://gui.bugster.dev[/blue] to complete the setup manually.")
+                            console.print("🌐 You can try again later or visit [blue]https://app.bugster.dev[/blue] to complete the setup manually.")
                         
                         return
 
@@ -162,13 +162,13 @@ def install_github_command():
         progress.stop()
         console.print("\n❌ [red]Installation timeout reached (8 minutes).[/red]")
         console.print("🔍 Something may have gone wrong during the GitHub installation.")
-        console.print("🌐 Please visit [blue]https://gui.bugster.dev[/blue] to complete the GitHub integration setup manually.")
+        console.print("🌐 Please visit [blue]https://app.bugster.dev[/blue] to complete the GitHub integration setup manually.")
 
     except BugsterHTTPError as e:
         console.print(f"[red]❌ API Error during GitHub installation: {e}[/red]")
-        console.print("🌐 Please visit [blue]https://gui.bugster.dev[/blue] to try installing the integration manually.")
+        console.print("🌐 Please visit [blue]https://app.bugster.dev[/blue] to try installing the integration manually.")
     except Exception as e:
         console.print(f"[red]❌ Unexpected error during GitHub installation: {e}[/red]")
-        console.print("🌐 Please visit [blue]https://gui.bugster.dev[/blue] to try installing the integration manually.")
+        console.print("🌐 Please visit [blue]https://app.bugster.dev[/blue] to try installing the integration manually.")
     finally:
         client.close()
