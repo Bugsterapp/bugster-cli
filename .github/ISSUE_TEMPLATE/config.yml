@@ -7,5 +7,5 @@ contact_links:
     url: https://discord.gg/bugster
     about: Join our Discord community for real-time support and discussions
   - name: 🌐 Dashboard Support
-    url: https://gui.bugster.dev/support
+    url: https://app.bugster.dev/support
     about: For dashboard-related issues, use the built-in support system
