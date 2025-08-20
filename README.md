@@ -39,8 +39,51 @@ curl -sSL https://github.com/Bugsterapp/bugster-cli/releases/latest/download/ins
 
 #### Windows
 
-1. Download [install.bat](https://github.com/Bugsterapp/bugster-cli/releases/latest/download/install.bat)
-2. Right-click and select "Run as administrator"
+##### Recommended Method (PowerShell)
+The recommended way to install Bugster CLI on Windows is by using the PowerShell installer. Open a PowerShell terminal and run the following command:
+```powershell
+iwr https://raw.githubusercontent.com/Bugsterapp/bugster-cli/main/scripts/install.ps1 -useb | iex
+```
+This command downloads and executes the official installer script, which will:
+1.  Determine the correct version for your system.
+2.  Download the binary from the latest GitHub Release.
+3.  Unzip and place it in a standard user directory (`%LOCALAPPDATA%\Programs\bugster`).
+4.  Add the installation directory to your user's `PATH` environment variable.
+
+After installation, you must **open a new terminal window** for the `bugster` command to be available.
+
+##### Manual Installation
+
+If you prefer not to run the script, you can install the CLI manually:
+1.  Go to the [latest GitHub Release](https://github.com/Bugsterapp/bugster-cli/releases/latest).
+2.  Download the `bugster-windows.zip` file.
+3.  Extract the `bugster.exe` file to a directory of your choice (e.g., `C:\Program Files\bugster`).
+4.  Manually add that directory to your system's or user's `PATH` environment variable.
+
+##### Troubleshooting
+
+###### 1. Antivirus / Windows Defender flags the executable
+
+**Symptom:** After running the installer, `bugster.exe` is not found in the installation directory (`%LOCALAPPDATA%\Programs\bugster`), or it disappears shortly after installation.
+
+**Cause:** Because the executable is downloaded from the internet and is not digitally signed by a major publisher, Windows Defender or other antivirus software may automatically quarantine or delete it as a security precaution.
+
+**Solution:**
+1.  Open **Windows Security** > **Virus & threat protection**.
+2.  Go to **Protection history** to see if `bugster.exe` was quarantined. If so, you can restore it and allow it on your device.
+3.  To prevent this from happening in the future, add an exclusion:
+    *   Under **Virus & threat protection settings**, click **Manage settings**.
+    *   Scroll down to **Exclusions** and click **Add or remove exclusions**.
+    *   Click **Add an exclusion**, select **Folder**, and paste the following path: `%LOCALAPPDATA%\Programs\bugster`
+
+###### 2. Command `bugster` not found after installation
+
+**Symptom:** After a successful installation, you type `bugster --help` and get an error like `'bugster' is not recognized...`.
+
+**Cause:** The terminal session where you ran the installer has an old copy of the `PATH` variable. The changes made by the installer will only be loaded by new terminal sessions.
+
+**Solution:**
+Close your current terminal window and **open a new one**. The command should now work correctly.
 
 ## Quick Start
 
