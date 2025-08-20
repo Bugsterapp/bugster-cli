@@ -14,7 +14,42 @@ Write-Host "Installation Directory: $installDir"
 Write-Host "Version to install: $Version"
 Write-Host
 
-# Step 1: Determine release URL
+# Step 1: Check for Node.js and npm. If not found, try to install them.
+Write-Host "[*] Checking for Node.js and npm..."
+$nodeExists = Get-Command node -ErrorAction SilentlyContinue
+if (-not $nodeExists) {
+    Write-Host "[-] Node.js not found. Attempting to install the latest LTS version..." -ForegroundColor Yellow
+    $wingetExists = Get-Command winget -ErrorAction SilentlyContinue
+    if (-not $wingetExists) {
+        Write-Host "`n[ERROR] Cannot install Node.js automatically because 'winget' is not available." -ForegroundColor Red
+        Write-Host "Please install Node.js LTS manually from https://nodejs.org/ and run this installer again." -ForegroundColor Yellow
+        exit 1
+    }
+    
+    try {
+        Write-Host "[*] Installing Node.js LTS via winget. This may take a few minutes..."
+        winget install --id OpenJS.NodeJS.LTS -e --accept-source-agreements --accept-package-agreements
+        Write-Host "[+] Node.js installed successfully." -ForegroundColor Green
+
+        # Add the default Node.js path to the current session's PATH to find it immediately.
+        # This is crucial for the subsequent 'npx' command to work.
+        $nodeInstallPath = "C:\Program Files\nodejs"
+        $env:Path = "$nodeInstallPath;" + $env:Path
+        Write-Host "[*] Updated session PATH to include Node.js."
+
+    } catch {
+        Write-Host "`n[ERROR] Failed to install Node.js using winget." -ForegroundColor Red
+        Write-Host "Please install Node.js LTS manually from https://nodejs.org/ and run this installer again." -ForegroundColor Yellow
+        exit 1
+    }
+} else {
+    $nodeVersion = (node --version)
+    Write-Host "[+] Found Node.js version $nodeVersion."
+}
+
+
+# Step 2: Determine release URL
+# ... (el resto del script es idéntico)
 if ($Version -eq 'latest') {
     $releaseUrl = "https://api.github.com/repos/$repo/releases/latest"
 } else {
@@ -41,13 +76,13 @@ $zipFileName = "bugster-windows.zip"
 $tempDir = Join-Path $env:TEMP "bugster-install-$($PID)"
 $zipFilePath = Join-Path $tempDir $zipFileName
 
-# Step 2: Download the asset
+# Step 3: Download the asset
 Write-Host "[*] Downloading $($asset.name) from $($releaseInfo.tag_name)..."
 New-Item -ItemType Directory -Path $tempDir -Force | Out-Null
 Invoke-WebRequest -Uri $downloadUrl -OutFile $zipFilePath
 Write-Host "[+] Download complete."
 
-# Step 3: Create installation directory and extract
+# Step 4: Create installation directory and extract
 Write-Host "[*] Creating installation directory at $installDir"
 New-Item -ItemType Directory -Path $installDir -Force | Out-Null
 
@@ -55,12 +90,11 @@ Write-Host "[*] Extracting $zipFileName..."
 Expand-Archive -Path $zipFilePath -DestinationPath $installDir -Force
 Write-Host "[+] Extraction complete."
 
-# Step 4: Add to user PATH if not already present
+# Step 5: Add to user PATH if not already present
 Write-Host "[*] Checking user PATH environment variable..."
 $userPath = [System.Environment]::GetEnvironmentVariable('PATH', 'User')
 if ($userPath -notlike "*$installDir*") {
     Write-Host "[*] Adding $installDir to your PATH."
-    # Handle case where PATH is empty or null
     if ([string]::IsNullOrEmpty($userPath)) {
         $newPath = $installDir
     } else {
@@ -73,7 +107,19 @@ if ($userPath -notlike "*$installDir*") {
     Write-Host "[+] Installation directory is already in your PATH."
 }
 
-# Step 5: Clean up
+# Step 6: Install Playwright browser dependencies silently
+Write-Host "[*] Installing Playwright browser dependencies (Chromium)..."
+Write-Host "This might take a few minutes."
+try {
+    # Use npx -y to auto-confirm and redirect all output to null for a silent install
+    Invoke-Expression "npx -y playwright install --with-deps chromium" *> $null
+    Write-Host "[+] Browser dependencies installed successfully." -ForegroundColor Green
+} catch {
+    Write-Host "`n[ERROR] Failed to install Playwright browser dependencies." -ForegroundColor Red
+    Write-Host "You may need to run the installer manually from a terminal with Administrator privileges." -ForegroundColor Yellow
+}
+
+# Step 7: Clean up
 Write-Host "[*] Cleaning up temporary files..."
 Remove-Item -Path $tempDir -Recurse -Force
 Write-Host "[+] Cleanup complete."
@@ -82,4 +128,4 @@ Write-Host
 Write-Host "==================================================" -ForegroundColor Green
 Write-Host " Bugster CLI was installed successfully!" -ForegroundColor Green
 Write-Host "==================================================" -ForegroundColor Green
-Write-Host "`nRun 'bugster --help' in a NEW terminal window to get started." 
+Write-Host "`nRun 'bugster --help' in a NEW terminal window to get started."
