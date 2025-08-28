@@ -111,13 +111,15 @@ if ($userPath -notlike "*$installDir*") {
 Write-Host "[*] Installing Playwright browser dependencies (Chromium)..."
 Write-Host "This might take a few minutes."
 try {
-    Invoke-Expression "npx --silent -y playwright install --with-deps chromium *> $null"
+    cmd /d /c "npx --silent -y playwright install --with-deps chromium >NUL 2>&1"
+    if ($LASTEXITCODE -ne 0) {
+        throw "Playwright installation failed with exit code $LASTEXITCODE."
+    }
     Write-Host "[+] Browser dependencies installed successfully." -ForegroundColor Green
 } catch {
     Write-Host "`n[ERROR] Failed to install Playwright browser dependencies." -ForegroundColor Red
     Write-Host "You may need to run the installer manually from a terminal with Administrator privileges." -ForegroundColor Yellow
 }
-
 # Step 7: Clean up
 Write-Host "[*] Cleaning up temporary files..."
 Remove-Item -Path $tempDir -Recurse -Force
