@@ -111,7 +111,7 @@ if ($userPath -notlike "*$installDir*") {
 Write-Host "[*] Installing Playwright browser dependencies (Chromium)..."
 Write-Host "This might take a few minutes."
 try {
-    cmd /d /c "npx -y playwright install --with-deps chromium >NUL 2>&1"
+    Invoke-Expression "npx --silent -y playwright install --with-deps chromium *> $null"
     Write-Host "[+] Browser dependencies installed successfully." -ForegroundColor Green
 } catch {
     Write-Host "`n[ERROR] Failed to install Playwright browser dependencies." -ForegroundColor Red
