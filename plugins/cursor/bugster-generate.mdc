@@ -1,0 +1,78 @@
+---
+alwaysApply: false
+---
+# Bugster Test Generation Rules
+
+When creating Bugster test specifications, follow these strict requirements:
+
+## YAML Structure (Non-negotiable)
+
+```yaml
+name: Descriptive test name
+page: /route/path
+page_path: relative/file/path.tsx # always relative to the frontend project (e.g., app/route.tsx); do not include a monorepo prefix like 'frontend/'
+task: Clear test objective
+steps:
+  - Action 1
+  - Action 2
+  - Verification step
+expected_result: Success criteria
+```
+
+**All fields are required. No exceptions.**
+
+## page_path Requirements
+
+- Must be the **relative path** to the actual page file being tested
+- Examples:
+  - `app/dashboard/users/page.tsx` (App Router)
+  - `pages/auth/login.tsx` (Pages Router)  
+  - `src/pages/products/[id].tsx` (Dynamic route)
+
+## File Naming & Location
+
+### File naming: snake_case, descriptive, .yaml extension
+- ✅ `user_profile_edit_form.yaml`
+- ✅ `login_authentication_flow.yaml`
+- ❌ `userProfile.yaml` (camelCase)
+- ❌ `test1.yaml` (not descriptive)
+
+### File location: Mirror your app's filesystem hierarchy
+```
+# If page_path: app/dashboard/users/page.tsx
+# Save to: .bugster/tests/dashboard/users/user_list_navigation.yaml
+
+# If page_path: pages/auth/login.tsx
+# Save to: .bugster/tests/auth/login_form_validation.yaml
+
+# If page_path: src/components/profile/settings.tsx
+# Save to: .bugster/tests/profile/settings_panel_functionality.yaml
+```
+
+## Test Generation Limits
+
+**Before creating new tests:**
+- Check existing tests in `.bugster/tests/` to avoid duplicates
+- Review similar functionality that may already be covered
+- Only create tests for uncovered scenarios
+
+**Maximum 5 tests per feature** (unless user explicitly requests more)
+- Focus on core functionality first
+- Avoid repetitive test scenarios
+- Quality over quantity - one comprehensive test is better than multiple redundant ones
+- Stop early if core functionality is already covered
+
+## Quick Reference
+
+**Always provide:**
+1. Complete YAML with all required fields
+2. Correct relative page_path 
+3. Proper snake_case filename suggestion
+4. Full file path under `.bugster/tests/`
+
+**Never:**
+- Skip required fields
+- Use absolute paths in page_path
+- Suggest camelCase or space-separated filenames
+- Place files outside `.bugster/tests/` hierarchy
+- Generate more than 5 tests per feature without explicit request
