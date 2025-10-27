@@ -1,120 +1,113 @@
-# Bugster Test Generation Guidelines
+# Bugster Test Generation
 
-## Overview
-This document provides guidelines for generating Bugster test specifications following the required YAML structure and best practices.
+Generate user-focused frontend test specifications for Next.js applications.
 
-## When to Apply
-Apply these rules when:
-- Creating new Bugster test specifications
-- Asked to generate tests for frontend features
-- Working with `.bugster/tests/` directory
+## Core Principles
 
-## YAML Structure Requirements (Non-negotiable)
+**Test user-facing functionality only:**
+- ✅ User interactions, workflows, and browser behavior
+- ✅ End-to-end page functionality and navigation
+- ✅ Form validation, search, filters, and interactive features
+- ❌ APIs, endpoints, or server logic
+- ❌ Third-party auth (OAuth, Google, Facebook, GitHub)
+- ❌ Isolated components (test through pages instead)
+- ❌ Metadata, SEO elements, or HTML structure
+- ❌ Non-existent functionality
 
-All Bugster test files MUST follow this exact structure:
+**Quality over quantity:**
+- Maximum 5 tests per feature (adjust to actual complexity)
+- Check for duplicate coverage before creating new tests
+- Focus on critical workflows users actually need
+
+## Required YAML Structure
 ```yaml
-name: Descriptive test name
+name: User-focused action description
 page: /route/path
-page_path: relative/file/path.tsx
-task: Clear test objective
+page_path: app/route/page.tsx  # Relative path, must exist in codebase
+task: What functionality is being tested
 steps:
-  - Action 1
-  - Action 2
-  - Verification step
-expected_result: Success criteria
+  - Navigate or interact
+  - Perform action
+  - Verify outcome
+expected_result: Specific, measurable outcome
 ```
 
-**All fields are required. No exceptions.**
+### Field Requirements
 
-## Field Specifications
+- `name`: Describes what user accomplishes (not component names)
+- `page`: Route slug from your Next.js app
+- `page_path`: Relative file path that exists in your project
+- `task`: Clear objective from user perspective
+- `steps`: Actionable sequence (3-6 steps typical)
+- `expected_result`: Observable success criteria
 
-### page_path Requirements
-- MUST be the **relative path** to the actual page file being tested
-- Always relative to frontend project root
-- Do NOT include monorepo prefixes like 'frontend/'
-- Examples:
-  - `app/dashboard/users/page.tsx` (App Router)
-  - `pages/auth/login.tsx` (Pages Router)
-  - `src/pages/products/[id].tsx` (Dynamic route)
+## File Organization
 
-### File Naming & Location
+### Naming: `snake_case.yaml`
+✅ `product_search_filter.yaml`  
+❌ `productSearch.yaml`, `test1.yaml`, `ProductCard.yaml`
 
-**Naming Convention: snake_case with .yaml extension**
-- ✅ GOOD: `user_profile_edit_form.yaml`
-- ✅ GOOD: `login_authentication_flow.yaml`
-- ❌ BAD: `userProfile.yaml` (camelCase)
-- ❌ BAD: `test1.yaml` (not descriptive)
-
-**Directory Structure: Mirror app filesystem hierarchy**
+### Location: Mirror app structure in `.bugster/tests/`
 ```
-# If page_path: app/dashboard/users/page.tsx
-# Save to: .bugster/tests/dashboard/users/user_list_navigation.yaml
+app/dashboard/users/page.tsx
+→ .bugster/tests/dashboard/users/user_management.yaml
 
-# If page_path: pages/auth/login.tsx
-# Save to: .bugster/tests/auth/login_form_validation.yaml
-
-# If page_path: src/components/profile/settings.tsx
-# Save to: .bugster/tests/profile/settings_panel_functionality.yaml
+pages/products/[id].tsx
+→ .bugster/tests/products/product_detail_view.yaml
 ```
 
-## Test Generation Limits
+## Examples
 
-**IMPORTANT: Check before creating**
-1. Search existing tests in `.bugster/tests/` to avoid duplicates
-2. Review similar functionality that may already be covered
-3. Only create tests for uncovered scenarios
-
-**Maximum 5 tests per feature** (unless explicitly requested otherwise)
-- Focus on core functionality first
-- Avoid repetitive test scenarios
-- Quality over quantity
-- One comprehensive test > multiple redundant tests
-- Stop early if core functionality is already covered
-
-## Pre-Generation Checklist
-
-Before generating any Bugster tests, ALWAYS:
-1. ✅ Verify you understand the feature being tested
-2. ✅ Check `.bugster/tests/` for existing tests
-3. ✅ Confirm the correct page_path location
-4. ✅ Ensure test name is descriptive and follows snake_case
-5. ✅ Plan directory structure to mirror app structure
-
-## Quick Reference
-
-**Always Provide:**
-- Complete YAML with all required fields
-- Correct relative page_path
-- Proper snake_case filename
-- Full file path under `.bugster/tests/`
-
-**Never:**
-- Skip required fields
-- Use absolute paths in page_path
-- Suggest camelCase or space-separated filenames
-- Place files outside `.bugster/tests/` hierarchy
-- Generate more than 5 tests per feature without explicit request
-- Quote or reproduce content from search results
-
-## Example Generation
-
-When asked to create Bugster tests, respond with:
+### ✅ Good Test
 ```yaml
-# File: .bugster/tests/auth/login_validation.yaml
-
-name: Login form validation and authentication
-page: /login
-page_path: app/auth/login/page.tsx
-task: Verify login form validates inputs and authenticates users
+name: User filters products by price range and category
+page: /products
+page_path: app/products/page.tsx
+task: Verify filtering functionality updates results correctly
 steps:
-  - Navigate to login page
-  - Enter invalid email format
-  - Verify error message displays
-  - Enter valid credentials
-  - Click login button
-  - Verify redirect to dashboard
-expected_result: User successfully logs in and is redirected to dashboard
+  - Navigate to products page
+  - Select price range $50-$100
+  - Choose "Electronics" category
+  - Verify filtered results display
+  - Verify URL parameters update
+expected_result: Product list shows only electronics priced $50-$100, URL reflects filters
 ```
 
-**Filename**: `login_validation.yaml`
-**Location**: `.bugster/tests/auth/login_validation.yaml`
+### ❌ Bad Tests
+```yaml
+# Tests isolated component
+name: ProductCard component renders
+page_path: components/ProductCard.tsx
+
+# Tests backend
+name: API returns user data
+
+# Tests metadata
+name: Page title is correct
+```
+
+## Before Creating Tests
+
+1. Verify `page_path` exists in your codebase
+2. Confirm functionality is actually implemented
+3. Check for duplicate coverage in `.bugster/tests/`
+4. Ensure test describes user action, not implementation
+
+## Test Prioritization
+
+1. Critical paths (login, checkout, data submission)
+2. Interactive features (search, sorting, filtering)
+3. Form validation and error states
+4. Navigation flows
+5. Conditional UI (loading, empty, error states)
+
+## Quick Checklist
+
+- [ ] All YAML fields present and valid
+- [ ] `page_path` is relative and exists
+- [ ] Name describes user action
+- [ ] No component names in description
+- [ ] Not testing APIs or auth
+- [ ] Not duplicate of existing test
+- [ ] File uses `snake_case.yaml`
+- [ ] Saved in correct `.bugster/tests/` subdirectory
