@@ -41,6 +41,64 @@ expected_result: Specific, measurable outcome
 - `steps`: Actionable sequence (3-6 steps typical)
 - `expected_result`: Observable success criteria
 
+## Using Hooks for Dynamic Data
+
+When tests require **specific data** that must be fetched or computed before execution (database IDs, account references, dynamic values), use **hooks** to define helper functions that run before the test.
+
+### Hook Configuration Format
+```yaml
+name: User-focused action description
+page: /route/path
+page_path: app/route/page.tsx
+hooks:
+  before:
+    - helper: <helper_function_name>
+      file_path: <path_to_helper_file>
+      args: [<arg1>, <arg2>, ...]
+      as: <variable_name>
+task: What functionality is being tested
+steps:
+  - Step using {{variable_name}}
+expected_result: Specific, measurable outcome
+```
+
+### Hook Fields
+
+| Field | Description | Required |
+|-------|-------------|----------|
+| `helper` | Name of the helper function to execute | Yes |
+| `file_path` | Path to the file containing the helper function | Yes |
+| `args` | Array of arguments to pass to the helper function | No |
+| `as` | Variable name to store the helper's return value | Yes |
+
+### Example with Hooks
+```yaml
+name: User creates optional concept without attributes
+page: /conceptos
+page_path: apps/e2e/pages/dashboard/conceptsPage.ts
+hooks:
+  before:
+    - helper: getSchoolIdByName
+      file_path: apps/e2e/helpers/commons.ts
+      args: ["Instituto Internacional Carlos"]
+      as: schoolId
+task: Verify user can create optional concept with IVA billing
+steps:
+  - Login as automata@getcome.com with pass
+  - Navigate to concepts page
+  - Fill in concept details using {{schoolId}}
+  - Submit the form
+expected_result: Success message displays, concept visible in concepts table
+```
+
+### When to Use Hooks
+
+- Database IDs that vary between environments
+- Dynamic data that must be fetched at runtime
+- Pre-test setup (creating test users, seeding data)
+- Authentication tokens or session data
+- Any data that cannot be hardcoded in the test specification
+
 ## File Organization
 
 ### Naming: `snake_case.yaml`
